@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Boost — Tâches d'équipe</title>
+<meta name="description" content="Boost : transforme les tâches ménagères partagées en points et récompenses.">
+<meta name="theme-color" content="#e0552b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Boost">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<script src="./support.js"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  });
+}
+</script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { background: radial-gradient(120% 90% at 50% 0%, #fff6ee 0%, #ece2d8 60%, #e4d9cd 100%); }
+  *::-webkit-scrollbar { width: 0; height: 0; }
+  @keyframes pulsering { 0% { transform: scale(.5); opacity: .75; } 100% { transform: scale(1.75); opacity: 0; } }
+  @keyframes fall { 0% { transform: translateY(-12px) rotate(0); opacity: 1; } 100% { transform: translateY(440px) rotate(380deg); opacity: 0; } }
+  @keyframes pop { 0% { transform: scale(0); } 62% { transform: scale(1.18); } 100% { transform: scale(1); } }
+  @keyframes shake { 0%,100% { transform: translateX(0); } 20%,60% { transform: translateX(-7px); } 40%,80% { transform: translateX(7px); } }
+  @keyframes toastin { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+</style>
+</helmet>
+
+<div style="min-height:100vh;display:flex;justify-content:center;font-family:'Hanken Grotesk',sans-serif;">
+    <div style="position:relative;width:100%;max-width:480px;min-height:100vh;height:100dvh;overflow:hidden;background:#fbf7f4;box-shadow:0 0 60px rgba(31,27,24,.08);">
+
+      <!-- ===================== NFC ===================== -->
+      <sc-if value="{{ isNfc }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute;inset:0;background:radial-gradient(120% 80% at 50% -10%,#3a322c,#211c19 70%);color:#fff;display:flex;flex-direction:column;">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:42px 26px 0;font-size:13px;font-weight:600;color:rgba(255,255,255,.85);"><span>{{ timeLabel }}</span><span style="width:17px;height:10px;border:1.5px solid rgba(255,255,255,.7);border-radius:2px;"></span></div>
+          <div style="padding:48px 30px 0;">
+            <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:30px;letter-spacing:-.02em;color:#f0a93f;">Boost</div>
+            <div style="font-size:14px;color:rgba(255,255,255,.6);margin-top:6px;">Récompenses tâches d'équipe</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:38px;">
+            <div onClick="{{ onIdentify }}" style="position:relative;width:200px;height:200px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+              <div style="position:absolute;width:200px;height:200px;border-radius:999px;border:2px solid rgba(240,169,63,.6);animation:pulsering 2.4s ease-out infinite;"></div>
+              <div style="position:absolute;width:200px;height:200px;border-radius:999px;border:2px solid rgba(240,169,63,.6);animation:pulsering 2.4s ease-out infinite;animation-delay:1.2s;"></div>
+              <div style="width:128px;height:128px;border-radius:999px;background:linear-gradient(150deg,#e0552b,#f0a93f);display:flex;align-items:center;justify-content:center;box-shadow:0 20px 40px -12px rgba(224,85,43,.7);">
+                <div style="position:relative;width:52px;height:52px;">
+                  <div style="position:absolute;top:0;left:0;width:15px;height:15px;border:3px solid #fff;border-radius:3px;"></div>
+                  <div style="position:absolute;top:0;right:0;width:15px;height:15px;border:3px solid #fff;border-radius:3px;"></div>
+                  <div style="position:absolute;bottom:0;left:0;width:15px;height:15px;border:3px solid #fff;border-radius:3px;"></div>
+                  <div style="position:absolute;bottom:3px;right:3px;width:9px;height:9px;background:#fff;border-radius:2px;"></div>
+                  <div style="position:absolute;bottom:14px;right:1px;width:6px;height:6px;background:#fff;border-radius:1px;"></div>
+                  <div style="position:absolute;top:2px;right:20px;width:5px;height:5px;background:#fff;border-radius:1px;"></div>
+                </div>
+              </div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-family:'Bricolage Grotesque',sans-serif;font-size:23px;font-weight:700;">Connecte-toi</div>
+              <div style="font-size:14px;color:rgba(255,255,255,.6);margin-top:7px;max-width:240px;line-height:1.5;">Entre ton code perso à 4 chiffres, ou touche le cercle pour simuler.</div>
+            </div>
+          </div>
+          <div style="padding:0 26px 40px;text-align:center;font-size:13px;color:rgba(255,255,255,.45);">Première connexion&nbsp;? Demande ton code au manager</div>
+        </div>
+      </sc-if>
+
+      <!-- ===================== HOME ===================== -->
+      <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute;inset:0;overflow-y:auto;padding:50px 0 92px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:0 22px;">
+            <div>
+              <div style="font-size:13px;color:#8a7f76;">{{ greeting }}</div>
+              <div style="font-family:'Bricolage Grotesque',sans-serif;font-size:21px;font-weight:700;color:#2b2420;letter-spacing:-.01em;">Thomas Renard</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:11px;">
+              <div onClick="{{ goNotifications }}" style="position:relative;width:42px;height:42px;border-radius:14px;background:#fff;border:1px solid #f0e3d8;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+                <div style="width:15px;height:15px;border:2.5px solid #2b2420;border-radius:8px 8px 5px 5px;position:relative;"><div style="position:absolute;bottom:-5px;left:50%;transform:translateX(-50%);width:5px;height:5px;border-radius:999px;background:#2b2420;"></div></div>
+                <div style="{{ bellBadge }}">{{ unreadCount }}</div>
+              </div>
+              <div style="{{ homeAvatarStyle }}">{{ homeAvatarLabel }}</div>
+            </div>
+          </div>
+
+          <div style="margin:18px 18px 0;background:linear-gradient(150deg,#e0552b,#f0a93f);border-radius:26px;padding:22px;color:#fff;position:relative;overflow:hidden;">
+            <div style="position:absolute;top:-30px;right:-30px;width:130px;height:130px;border-radius:999px;background:rgba(255,255,255,.12);"></div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div style="font-size:13px;opacity:.92;">Solde à dépenser</div>
+              <div onClick="{{ goRewards }}" style="background:rgba(255,255,255,.22);border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:700;cursor:pointer;">Échanger ›</div>
+            </div>
+            <div style="display:flex;align-items:baseline;gap:8px;margin-top:2px;"><span style="font-family:'Bricolage Grotesque',sans-serif;font-size:50px;font-weight:800;line-height:1;">{{ points }}</span><span style="font-size:15px;opacity:.9;font-weight:600;">pts</span></div>
+            <div style="margin-top:14px;height:8px;background:rgba(255,255,255,.28);border-radius:999px;overflow:hidden;"><div style="width:{{ progressWidth }};height:100%;background:#fff;border-radius:999px;"></div></div>
+            <div style="font-size:12.5px;margin-top:8px;opacity:.95;">{{ nextRewardLabel }}</div>
+          </div>
+
+          <div style="margin:12px 18px 0;background:#fff;border:1px solid #f0e3d8;border-radius:18px;padding:14px 16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div style="display:flex;align-items:center;gap:10px;"><div style="width:30px;height:30px;border-radius:9px;background:#2b2420;color:#f0a93f;font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;">{{ levelNum }}</div><div><div style="font-size:14px;font-weight:700;color:#2b2420;">Niveau {{ levelNum }} · {{ levelName }}</div><div style="font-size:11px;color:#8a7f76;">{{ xpLabel }}</div></div></div>
+            </div>
+            <div style="margin-top:11px;height:7px;background:#f0e7de;border-radius:999px;overflow:hidden;"><div style="width:{{ xpWidth }};height:100%;background:linear-gradient(90deg,#e0552b,#f0a93f);border-radius:999px;"></div></div>
+          </div>
+
+          <sc-if value="{{ hasRotation }}" hint-placeholder-val="{{ true }}">
+            <div onClick="{{ goNotifications }}" style="margin:12px 18px 0;background:#fdf0e3;border:1px solid #f3dcc4;border-radius:16px;padding:13px 15px;display:flex;align-items:center;gap:12px;cursor:pointer;">
+              <div style="width:34px;height:34px;border-radius:10px;background:#f0a93f;display:flex;align-items:center;justify-content:center;flex:none;"><div style="width:13px;height:13px;border:2.5px solid #fff;border-radius:999px;"></div></div>
+              <div style="flex:1;"><div style="font-size:13px;font-weight:700;color:#2b2420;">À ton tour cette semaine</div><div style="font-size:12px;color:#a9781f;">{{ rotationTask }}</div></div>
+              <span style="font-size:18px;color:#c2531f;">›</span>
+            </div>
+          </sc-if>
+
+          <div style="display:flex;gap:11px;padding:12px 18px 0;">
+            <div style="flex:1;background:#fff;border:1px solid #f0e3d8;border-radius:18px;padding:13px 15px;"><div style="font-family:'Bricolage Grotesque',sans-serif;font-size:20px;font-weight:700;color:#2b2420;">{{ streak }} j</div><div style="font-size:11px;color:#8a7f76;margin-top:1px;">série en cours</div></div>
+            <div style="flex:1;background:#fff;border:1px solid #f0e3d8;border-radius:18px;padding:13px 15px;"><div style="font-family:'Bricolage Grotesque',sans-serif;font-size:20px;font-weight:700;color:#2b2420;">{{ rankLabel }}</div><div style="font-size:11px;color:#8a7f76;margin-top:1px;">au classement</div></div>
+          </div>
+
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:22px 24px 10px;"><span style="font-family:'Bricolage Grotesque',sans-serif;font-size:16px;font-weight:700;color:#2b2420;">Mes badges</span></div>
+          <div style="display:flex;gap:14px;padding:0 22px;overflow-x:auto;">
+            <sc-for list="{{ badges }}" as="b" hint-placeholder-count="6">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex:none;width:64px;">
+                <div style="{{ b.circleStyle }}"><div style="{{ b.gemStyle }}"></div></div>
+                <span style="font-size:10.5px;text-align:center;color:{{ b.labelColor }};line-height:1.2;">{{ b.name }}</span>
+              </div>
+            </sc-for>
+          </div>
+
+          <div onClick="{{ goDeclare }}" style="margin:18px 18px 0;background:#2b2420;color:#fff;border-radius:18px;padding:16px 18px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;">
+            <div style="display:flex;align-items:center;gap:13px;"><div style="width:38px;height:38px;border-radius:12px;background:rgba(240,169,63,.25);display:flex;align-items:center;justify-content:center;color:#f0a93f;font-size:24px;font-weight:300;">+</div><div><div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:16px;">Déclarer une tâche</div><div style="font-size:11.5px;color:rgba(255,255,255,.6);">Gagne des points en quelques secondes</div></div></div>
+            <span style="font-size:20px;color:rgba(255,255,255,.5);">›</span>
+          </div>
+
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:22px 24px 10px;"><span style="font-family:'Bricolage Grotesque',sans-serif;font-size:16px;font-weight:700;color:#2b2420;">Activité récente</span><span onClick="{{ goHistory }}" style="font-size:12.5px;font-weight:600;color:#e0552b;cursor:pointer;">Tout voir</span></div>
+          <div style="padding:0 18px;display:flex;flex-direction:column;gap:9px;">
+            <sc-for list="{{ homeRecent }}" as="h" hint-placeholder-count="3">
+              <div style="background:#fff;border:1px solid #f0e3d8;border-radius:16px;padding:13px 15px;display:flex;justify-content:space-between;align-items:center;">
+                <div><div style="font-size:14px;font-weight:600;color:#2b2420;">{{ h.task }}</div><div style="font-size:11.5px;color:#8a7f76;margin-top:2px;">{{ h.meta }}</div></div>
+                <span style="{{ h.tagStyle }}">{{ h.tag }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===================== DECLARE ===================== -->
+      <sc-if value="{{ isDeclare }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute;inset:0;overflow-y:auto;padding:50px 0 110px;background:#fbf7f4;">
+          <div style="display:flex;align-items:center;gap:12px;padding:0 22px;">
+            <div onClick="{{ goHome }}" style="width:36px;height:36px;border-radius:12px;background:#fff;border:1px solid #f0e3d8;display:flex;align-items:center;justify-content:center;color:#2b2420;font-size:18px;cursor:pointer;">‹</div>
+            <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:18px;color:#2b2420;">Nouvelle tâche</div>
+          </div>
+          <div style="margin:9px 24px 0;background:#fff;border:1px solid #f0e3d8;border-radius:12px;padding:9px 12px;display:flex;align-items:center;gap:9px;">
+            <span style="width:7px;height:7px;border-radius:999px;background:#7fb5a0;flex:none;"></span>
+            <span style="flex:1;font-size:11.5px;color:#8a7f76;line-height:1.35;">Anti-abus : 1 déclaration / tâche toutes les 2 h</span>
+            <span style="font-size:11px;font-weight:700;color:#6b625b;background:#f4ede5;border-radius:999px;padding:3px 9px;white-space:nowrap;">{{ dailyCount }}/{{ dailyMax }} auj.</span>
+          </div>
+
+          <div style="padding:22px 24px 8px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#a89e94;">Salle</div>
+          <div style="padding:0 18px;">
+            <div onClick="{{ onScanZone }}" style="display:flex;align-items:center;gap:12px;background:#2b2420;border-radius:16px;padding:13px 15px;cursor:pointer;">
+              <div style="position:relative;width:28px;height:28px;flex:none;">
+                <div style="position:absolute;top:0;left:0;width:9px;height:9px;border:2px solid #f0a93f;border-radius:2px;"></div>
+                <div style="position:absolute;top:0;right:0;width:9px;height:9px;border:2px solid #f0a93f;border-radius:2px;"></div>
+                <div style="position:absolute;bottom:0;left:0;width:9px;height:9px;border:2px solid #f0a93f;border-radius:2px;"></div>
+                <div style="position:absolute;bottom:2px;right:2px;width:5px;height:5px;background:#f0a93f;border-radius:1px;"></div>
+              </div>
+              <div style="flex:1;"><div style="font-size:14px;font-weight:700;color:#fff;">Scanner le QR de la salle</div><div style="font-size:11.5px;color:rgba(255,255,255,.55);margin-top:1px;">Confirme ta présence sur place</div></div>
+              <span style="font-size:18px;color:rgba(255,255,255,.5);">›</span>
+            </div>
+          </div>
+          <div style="padding:12px 24px 6px;font-size:11.5px;color:#b3a99f;">ou choisis manuellement</div>
+          <div style="display:flex;gap:8px;padding:0 24px;overflow-x:auto;">
+            <sc-for list="{{ zoneChips }}" as="z" hint-placeholder-count="4">
+              <div onClick="{{ z.onPick }}" style="{{ z.chipStyle }}">{{ z.name }}</div>
+            </sc-for>
+          </div>
+
+          <div style="padding:20px 24px 8px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#a89e94;">Tâche effectuée</div>
+          <div style="padding:0 18px;display:flex;flex-direction:column;gap:9px;">
+            <sc-for list="{{ tasks }}" as="t" hint-placeholder-count="6">
+              <div onClick="{{ t.onSelect }}" style="{{ t.rowStyle }}">
+                <span style="{{ t.nameStyle }}">{{ t.name }}</span>
+                <span style="{{ t.badgeStyle }}">{{ t.badgeLabel }}</span>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="padding:20px 24px 8px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#a89e94;">Photo de preuve <span style="text-transform:none;letter-spacing:0;color:#c4b9af;">(optionnel)</span></div>
+          <div style="padding:0 18px;">
+            <sc-if value="{{ hasProof }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #f0e3d8;border-radius:16px;padding:11px 13px;">
+                <div style="{{ proofThumb }}"></div>
+                <div style="flex:1;font-size:13.5px;font-weight:600;color:#2b2420;">Photo ajoutée</div>
+                <div onClick="{{ clearProof }}" style="font-size:13px;font-weight:600;color:#e0552b;cursor:pointer;">Retirer</div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ noProof }}" hint-placeholder-val="{{ true }}">
+              <label style="display:flex;align-items:center;gap:12px;background:#fff;border:1px dashed #d8cabb;border-radius:16px;padding:13px 15px;cursor:pointer;">
+                <div style="width:34px;height:34px;border-radius:10px;background:#fdf0e3;display:flex;align-items:center;justify-content:center;flex:none;"><div style="width:15px;height:12px;border:2px solid #e0552b;border-radius:3px;position:relative;"><div style="position:absolute;top:-4px;left:4px;width:6px;height:3px;background:#e0552b;border-radius:2px 2px 0 0;"></div><div style="position:absolute;top:2.5px;left:50%;transform:translateX(-50%);width:5px;height:5px;border-radius:999px;background:#e0552b;"></div></div></div>
+                <span style="flex:1;font-size:13.5px;font-weight:600;color:#2b2420;">Prendre / ajouter une photo</span>
+                <span style="font-size:18px;color:#c4b9af;">+</span>
+                <input type="file" accept="image/*" onChange="{{ onProof }}" style="display:none;" />
+              </label>
+            </sc-if>
+          </div>
+
+          <div style="margin:18px 18px 0;background:#fff;border:1px solid #f0e3d8;border-radius:16px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">
+            <div><div style="font-size:11.5px;color:#8a7f76;">Date &amp; heure</div><div style="font-size:14px;font-weight:600;color:#2b2420;margin-top:1px;">{{ stampLabel }}</div></div>
+            <span style="font-size:12px;font-weight:700;color:#2f8a4f;background:#e7f3ec;border-radius:999px;padding:4px 10px;">Auto ✓</span>
+          </div>
+
+          <div style="position:absolute;left:18px;right:18px;bottom:22px;">
+            <div onClick="{{ onValidate }}" style="{{ validateStyle }}">{{ validateLabel }}</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===================== SUCCESS ===================== -->
+      <sc-if value="{{ isSuccess }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute;inset:0;overflow:hidden;background:radial-gradient(120% 70% at 50% 0%,#fff3e8,#fbf7f4 60%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 30px;text-align:center;">
+          <sc-for list="{{ confetti }}" as="c" hint-placeholder-count="0">
+            <div style="{{ c.style }}"></div>
+          </sc-for>
+          <div style="width:104px;height:104px;border-radius:999px;background:linear-gradient(150deg,#e0552b,#f0a93f);display:flex;align-items:center;justify-content:center;box-shadow:0 24px 44px -14px rgba(224,85,43,.6);animation:pop .5s cubic-bezier(.2,.8,.3,1.1) both;">
+            <div style="width:42px;height:24px;border-left:6px solid #fff;border-bottom:6px solid #fff;transform:rotate(-45deg) translate(2px,-4px);border-radius:2px;"></div>
+          </div>
+          <div style="font-family:'Bricolage Grotesque',sans-serif;font-size:50px;font-weight:800;color:#e0552b;margin-top:24px;line-height:1;">+{{ earnedPts }}</div>
+          <div style="font-size:15px;color:#8a7f76;margin-top:2px;">points gagnés</div>
+          <div style="font-family:'Bricolage Grotesque',sans-serif;font-size:19px;font-weight:700;color:#2b2420;margin-top:20px;">{{ lastTask }}</div>
+          <div style="font-size:13px;color:#8a7f76;margin-top:3px;">{{ lastZone }} · {{ stampLabel }}</div>
+          <div style="margin-top:16px;display:flex;align-items:center;gap:7px;background:#fdf0e3;border:1px solid #f3dcc4;border-radius:999px;padding:7px 14px;font-size:12.5px;color:#a9781f;font-weight:600;"><span style="width:7px;height:7px;border-radius:999px;background:#f0a93f;"></span>En attente de validation du manager</div>
+          <div style="position:absolute;left:22px;right:22px;bottom:26px;display:flex;flex-direction:column;gap:10px;">
+            <div onClick="{{ goDeclare }}" style="background:#fff;border:1px solid #e7d8cb;color:#2b2420;border-radius:16px;padding:14px;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:15px;cursor:pointer;">Déclarer une autre tâche</div>
+            <div onClick="{{ goHome }}" style="background:#2b2420;color:#fff;border-radius:16px;padding:15px;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:15px;cursor:pointer;">Terminé</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===================== REWARDS ===================== -->
+      <sc-if value="{{ isRewards }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute;inset:0;overflow-y:auto;padding:50px 0 40px;background:#fbf7f4;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:0 22px;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div onClick="{{ goHome }}" style="width:36px;height:36px;border-radius:12px;background:#fff;border:1px solid #f0e3d8;display:flex;align-items:center;justify-content:center;color:#2b2420;font-size:18px;cursor:pointer;">‹</div>
+              <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:18px;color:#2b2420;">Récompenses</div>
+            </div>
+            <div style="background:#2b2420;color:#fff;border-radius:999px;padding:7px 14px;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:13px;">{{ points }} pts</div>
+          </div>
+          <div style="padding:18px 18px 0;display:flex;flex-direction:column;gap:10px;">
+            <sc-for list="{{ rewards }}" as="r" hint-placeholder-count="6">
+              <div style="background:#fff;border:1px solid #f0e3d8;border-radius:18px;padding:14px 15px;display:flex;align-items:center;gap:13px;">
+                <div style="{{ r.iconStyle }}"><div style="width:16px;height:16px;border-radius:5px;background:#fff;opacity:.92;"></div></div>
+                <div style="flex:1;"><div style="font-size:14.5px;font-weight:700;color:#2b2420;">{{ r.name }}</div><div style="font-size:11.5px;color:#8a7f76;margin-top:1px;">{{ r.desc }}</div></div>
+                <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+                  <span style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:14px;color:#2b2420;">{{ r.cost }} pts</span>
+                  <div onClick="{{ r.onRedeem }}" style="{{ r.btnStyle }}">{{ r.btnLabel }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="padding:24px 24px 8px;font-family:'Bricolage Grotesque',sans-serif;font-size:16px;font-weight:700;color:#2b2420;">Mes échanges</div>
+          <div style="padding:0 18px;display:flex;flex-direction:column;gap:8px;">
+            <sc-for list="{{ redeemed }}" as="x" hint-placeholder-count="2">
+              <div style="background:#fff;border:1px solid #f0e3d8;border-radius:14px;padding:11px 14px;display:flex;justify-content:space-between;align-items:center;">
+                <div style="display:flex;align-items:center;gap:11px;"><div style="width:8px;height:8px;border-radius:999px;background:#7fb5a0;"></div><div><div style="font-size:13.5px;font-weight:600;color:#2b2420;">{{ x.name }}</div><div style="font-size:11px;color:#8a7f76;">{{ x.when }}</div></div></div>
+                <span style="font-size:13px;font-weight:700;color:#c2531f;">−{{ x.cost }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===================== NOTIFICATIONS ===================== -->
+      <sc-if value="{{ isNotifications }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute;inset:0;overflow-y:auto;padding:50px 0 40px;background:#fbf7f4;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:0 22px;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div onClick="{{ goHome }}" style="width:36px;height:36px;border-radius:12px;background:#fff;border:1px solid #f0e3d8;display:flex;align-items:center;justify-content:center;color:#2b2420;font-size:18px;cursor:pointer;">‹</div>
+              <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:18px;color:#2b2420;">Notifications</div>
+            </div>
+            <div onClick="{{ markAllRead }}" style="font-size:12.5px;font-weight:600;color:#e0552b;cursor:pointer;">Tout lire</div>
+          </div>
+          <div style="padding:18px 18px 0;display:flex;flex-direction:column;gap:9px;">
+            <sc-for list="{{ notifications }}" as="n" hint-placeholder-count="4">
+              <div onClick="{{ n.onRead }}" style="{{ n.rowStyle }}">
+                <div style="{{ n.dotStyle }}"></div>
+                <div style="flex:1;"><div style="font-size:13.5px;font-weight:{{ n.weight }};color:#2b2420;line-height:1.35;">{{ n.text }}</div><div style="font-size:11px;color:#8a7f76;margin-top:3px;">{{ n.time }}</div></div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===================== LEADERBOARD ===================== -->
+      <sc-if value="{{ isLeaderboard }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute;inset:0;overflow-y:auto;padding:50px 0 92px;">
+          <div style="padding:0 24px;font-family:'Bricolage Grotesque',sans-serif;font-size:22px;font-weight:700;color:#2b2420;">Classement</div>
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 22px 0;">
+            <div onClick="{{ sitePrev }}" style="width:28px;height:28px;border-radius:9px;background:#fff;border:1px solid #f0e3d8;display:flex;align-items:center;justify-content:center;color:#2b2420;cursor:pointer;">‹</div>
+            <div style="flex:1;text-align:center;font-size:13px;font-weight:600;color:#6b625b;background:#fff;border:1px solid #f0e3d8;border-radius:999px;padding:7px 0;">{{ siteName }}</div>
+            <div onClick="{{ siteNext }}" style="width:28px;height:28px;border-radius:9px;background:#fff;border:1px solid #f0e3d8;display:flex;align-items:center;justify-content:center;color:#2b2420;cursor:pointer;">›</div>
+          </div>
+          <div style="display:flex;align-items:flex-end;justify-content:center;gap:14px;padding:22px 24px 8px;">
+            <sc-for list="{{ podium }}" as="p" hint-placeholder-count="3">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+                <div style="{{ p.avatarStyle }}">{{ p.avatarLabel }}</div>
+                <div style="font-size:12px;font-weight:600;color:#2b2420;">{{ p.name }}</div>
+                <div style="{{ p.barStyle }}"><span style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;color:#fff;font-size:15px;">{{ p.pos }}</span></div>
+                <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:13px;color:#2b2420;">{{ p.pts }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="padding:14px 18px 0;display:flex;flex-direction:column;gap:8px;">
+            <sc-for list="{{ ranking }}" as="r" hint-placeholder-count="5">
+              <div style="{{ r.rowStyle }}">
+                <span style="width:22px;text-align:center;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:13px;color:{{ r.posColor }};">{{ r.pos }}</span>
+                <span style="{{ r.avatarStyle }}">{{ r.avatarLabel }}</span>
+                <span style="flex:1;font-size:14px;font-weight:{{ r.nameWeight }};color:#2b2420;">{{ r.name }}</span>
+                <span style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:14px;color:{{ r.ptsColor }};">{{ r.pts }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===================== HISTORY ===================== -->
+      <sc-if value="{{ isHistory }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute;inset:0;overflow-y:auto;padding:50px 0 92px;">
+          <div style="padding:0 24px;font-family:'Bricolage Grotesque',sans-serif;font-size:22px;font-weight:700;color:#2b2420;">Mon activité</div>
+          <div style="display:flex;gap:11px;padding:16px 24px 4px;">
+            <div style="flex:1;background:#fff;border:1px solid #f0e3d8;border-radius:16px;padding:13px 15px;"><div style="font-family:'Bricolage Grotesque',sans-serif;font-size:19px;font-weight:700;color:#2b2420;">{{ weekCount }}</div><div style="font-size:11px;color:#8a7f76;">tâches / semaine</div></div>
+            <div style="flex:1;background:#fff;border:1px solid #f0e3d8;border-radius:16px;padding:13px 15px;"><div style="font-family:'Bricolage Grotesque',sans-serif;font-size:19px;font-weight:700;color:#2b2420;">+{{ weekPoints }}</div><div style="font-size:11px;color:#8a7f76;">points / semaine</div></div>
+          </div>
+          <div style="padding:18px 24px 8px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#a89e94;">Historique</div>
+          <div style="padding:0 18px;display:flex;flex-direction:column;gap:9px;">
+            <sc-for list="{{ history }}" as="h" hint-placeholder-count="5">
+              <div style="background:#fff;border:1px solid #f0e3d8;border-radius:16px;padding:13px 15px;display:flex;justify-content:space-between;align-items:center;">
+                <div style="display:flex;align-items:center;gap:12px;"><div style="{{ h.dotStyle }}"></div><div><div style="font-size:14px;font-weight:600;color:#2b2420;">{{ h.task }}</div><div style="font-size:11.5px;color:#8a7f76;margin-top:2px;">{{ h.meta }}</div></div></div>
+                <span style="{{ h.tagStyle }}">{{ h.tag }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===================== MANAGER PIN ===================== -->
+      <sc-if value="{{ isManagerLock }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute;inset:0;background:radial-gradient(120% 80% at 50% -10%,#3a322c,#211c19 70%);color:#fff;display:flex;flex-direction:column;align-items:center;padding:70px 30px 36px;">
+          <div onClick="{{ goHome }}" style="position:absolute;top:48px;left:24px;width:36px;height:36px;border-radius:12px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;">‹</div>
+          <div style="width:56px;height:56px;border-radius:16px;background:rgba(240,169,63,.2);display:flex;align-items:center;justify-content:center;margin-top:10px;">
+            <div style="width:18px;height:15px;border:3px solid #f0a93f;border-radius:0 0 4px 4px;position:relative;margin-top:8px;"><div style="position:absolute;top:-12px;left:1px;width:12px;height:12px;border:3px solid #f0a93f;border-bottom:none;border-radius:8px 8px 0 0;"></div></div>
+          </div>
+          <div style="font-family:'Bricolage Grotesque',sans-serif;font-size:23px;font-weight:700;margin-top:20px;">Accès manager</div>
+          <div style="font-size:13.5px;color:rgba(255,255,255,.55);margin-top:6px;text-align:center;">Réservé aux responsables · entre ton code</div>
+          <div style="{{ pinRowStyle }}">
+            <sc-for list="{{ pinDots }}" as="d" hint-placeholder-count="4">
+              <div style="{{ d.style }}"></div>
+            </sc-for>
+          </div>
+          <div style="font-size:12.5px;color:{{ pinMsgColor }};margin-top:14px;height:16px;">{{ pinMsg }}</div>
+          <div style="display:grid;grid-template-columns:repeat(3,72px);gap:14px;margin-top:18px;">
+            <sc-for list="{{ keypad }}" as="k" hint-placeholder-count="12">
+              <div onClick="{{ k.onPress }}" style="{{ k.style }}">{{ k.label }}</div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===================== ADMIN ===================== -->
+      <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute;inset:0;overflow-y:auto;padding:50px 0 92px;background:#fbf7f4;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:0 22px;">
+            <div><div style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#e0552b;">Vue manager</div>
+              <div style="display:flex;align-items:center;gap:7px;margin-top:3px;"><div onClick="{{ sitePrev }}" style="width:24px;height:24px;border-radius:8px;background:#fff;border:1px solid #f0e3d8;display:flex;align-items:center;justify-content:center;color:#2b2420;font-size:14px;cursor:pointer;">‹</div><div style="font-family:'Bricolage Grotesque',sans-serif;font-size:18px;font-weight:700;color:#2b2420;">{{ siteName }}</div><div onClick="{{ siteNext }}" style="width:24px;height:24px;border-radius:8px;background:#fff;border:1px solid #f0e3d8;display:flex;align-items:center;justify-content:center;color:#2b2420;font-size:14px;cursor:pointer;">›</div></div>
+            </div>
+            <div style="font-size:12px;color:#8a7f76;background:#fff;border:1px solid #f0e3d8;border-radius:999px;padding:6px 12px;">Semaine 26</div>
+          </div>
+          <div style="display:flex;gap:10px;padding:18px 18px 0;">
+            <sc-for list="{{ adminKpis }}" as="k" hint-placeholder-count="3">
+              <div style="flex:1;background:#fff;border:1px solid #f0e3d8;border-radius:18px;padding:14px 12px;text-align:center;"><div style="font-family:'Bricolage Grotesque',sans-serif;font-size:22px;font-weight:800;color:#2b2420;">{{ k.value }}</div><div style="font-size:10.5px;color:#8a7f76;margin-top:3px;line-height:1.25;">{{ k.label }}</div></div>
+            </sc-for>
+          </div>
+
+          <!-- A valider -->
+          <div style="padding:24px 24px 4px;display:flex;justify-content:space-between;align-items:baseline;"><span style="font-family:'Bricolage Grotesque',sans-serif;font-size:16px;font-weight:700;color:#2b2420;">À valider</span><span style="{{ pendingCountStyle }}">{{ pendingCount }}</span></div>
+          <div style="padding:8px 18px 0;display:flex;flex-direction:column;gap:9px;">
+            <sc-for list="{{ pending }}" as="p" hint-placeholder-count="3">
+              <div style="background:#fff;border:1px solid #f0e3d8;border-radius:16px;padding:12px 14px;">
+                <div style="display:flex;align-items:center;gap:11px;">
+                  <span style="{{ p.avatarStyle }}">{{ p.avatarLabel }}</span>
+                  <div style="flex:1;"><div style="font-size:13.5px;font-weight:700;color:#2b2420;">{{ p.task }}</div><div style="font-size:11.5px;color:#8a7f76;">{{ p.who }} · {{ p.when }} · +{{ p.pts }}</div></div>
+                  <sc-if value="{{ p.photo }}" hint-placeholder-val="{{ true }}"><div style="width:38px;height:38px;border-radius:10px;background:repeating-linear-gradient(45deg,#efe6dc,#efe6dc 5px,#e6dccf 5px,#e6dccf 10px);flex:none;"></div></sc-if>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:11px;">
+                  <div onClick="{{ p.onRefuse }}" style="flex:1;text-align:center;border:1px solid #f0d6cb;color:#c2531f;border-radius:11px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;">Refuser</div>
+                  <div onClick="{{ p.onAccept }}" style="flex:1;text-align:center;background:#2f8a4f;color:#fff;border-radius:11px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;">Valider</div>
+                </div>
+              </div>
+            </sc-for>
+            <sc-if value="{{ pendingEmpty }}" hint-placeholder-val="{{ true }}"><div style="background:#fff;border:1px dashed #e2d6c9;border-radius:16px;padding:18px;text-align:center;font-size:13px;color:#a89e94;">Tout est validé ✓</div></sc-if>
+          </div>
+
+          <!-- Equipe -->
+          <div style="padding:24px 24px 4px;display:flex;justify-content:space-between;align-items:baseline;"><span style="font-family:'Bricolage Grotesque',sans-serif;font-size:16px;font-weight:700;color:#2b2420;">Équipe</span><span style="font-size:11.5px;color:#8a7f76;">Touche une photo pour la changer</span></div>
+          <div style="padding:8px 18px 0;display:flex;flex-direction:column;gap:9px;">
+            <sc-for list="{{ team }}" as="m" hint-placeholder-count="5">
+              <div style="background:#fff;border:1px solid #f0e3d8;border-radius:16px;padding:11px 14px;display:flex;align-items:center;gap:13px;">
+                <label style="position:relative;cursor:pointer;flex:none;">
+                  <div style="{{ m.avatarStyle }}">{{ m.avatarLabel }}</div>
+                  <div style="position:absolute;right:-3px;bottom:-3px;width:20px;height:20px;border-radius:999px;background:#e0552b;border:2px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;line-height:1;">+</div>
+                  <input type="file" accept="image/*" onChange="{{ m.onPhoto }}" style="display:none;" />
+                </label>
+                <div style="flex:1;"><div style="font-size:14px;font-weight:600;color:#2b2420;">{{ m.name }}</div><div style="font-size:11.5px;color:#8a7f76;">{{ m.pts }} XP · {{ m.role }}</div></div>
+              </div>
+            </sc-for>
+          </div>
+
+          <!-- Rotation -->
+          <div style="padding:24px 24px 4px;font-family:'Bricolage Grotesque',sans-serif;font-size:16px;font-weight:700;color:#2b2420;">Rotation de la semaine</div>
+          <div style="padding:8px 18px 0;display:flex;flex-direction:column;gap:8px;">
+            <sc-for list="{{ rotation }}" as="r" hint-placeholder-count="4">
+              <div style="{{ r.rowStyle }}">
+                <span style="flex:1;font-size:13.5px;font-weight:500;color:#2b2420;">{{ r.task }}</span>
+                <span style="{{ r.avatarStyle }}">{{ r.avatarLabel }}</span>
+                <span style="font-size:12.5px;font-weight:600;color:#6b625b;">{{ r.who }}</span>
+              </div>
+            </sc-for>
+          </div>
+
+          <!-- Salles & zones -->
+          <div style="padding:24px 24px 4px;display:flex;justify-content:space-between;align-items:baseline;"><span style="font-family:'Bricolage Grotesque',sans-serif;font-size:16px;font-weight:700;color:#2b2420;">Salles &amp; zones</span><span style="font-size:11.5px;color:#8a7f76;">QR à imprimer pour chaque salle</span></div>
+          <div style="padding:6px 18px 0;display:flex;flex-direction:column;gap:8px;">
+            <sc-for list="{{ adminZones }}" as="z" hint-placeholder-count="4">
+              <div style="background:#fff;border:1px solid #f0e3d8;border-radius:14px;padding:11px 12px;display:flex;align-items:center;gap:11px;">
+                <div style="position:relative;width:34px;height:34px;border-radius:9px;background:#2b2420;flex:none;">
+                  <div style="position:absolute;top:6px;left:6px;width:8px;height:8px;border:2px solid #f0a93f;border-radius:1px;"></div>
+                  <div style="position:absolute;top:6px;right:6px;width:8px;height:8px;border:2px solid #f0a93f;border-radius:1px;"></div>
+                  <div style="position:absolute;bottom:6px;left:6px;width:8px;height:8px;border:2px solid #f0a93f;border-radius:1px;"></div>
+                  <div style="position:absolute;bottom:8px;right:8px;width:4px;height:4px;background:#f0a93f;border-radius:1px;"></div>
+                </div>
+                <span style="flex:1;font-size:14px;font-weight:500;color:#2b2420;">{{ z.name }}</span>
+                <div onClick="{{ z.onPrint }}" style="font-size:12px;font-weight:700;color:#c2531f;background:#fdf0e3;border-radius:999px;padding:5px 11px;cursor:pointer;white-space:nowrap;">Imprimer QR</div>
+                <div onClick="{{ z.onRemove }}" style="width:26px;height:26px;border-radius:999px;background:#f7efe8;display:flex;align-items:center;justify-content:center;color:#a89e94;font-size:16px;cursor:pointer;flex:none;">×</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="margin:12px 18px 0;background:#fff;border:1px dashed #d8cabb;border-radius:16px;padding:14px;">
+            <div style="font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#a89e94;margin-bottom:10px;">Nouvelle salle</div>
+            <div style="display:flex;gap:9px;">
+              <input value="{{ newZoneName }}" onInput="{{ onZoneInput }}" placeholder="Ex. Cuisine — Étage 3" style="flex:1;box-sizing:border-box;border:1px solid #ece2d8;border-radius:12px;padding:11px 13px;font-size:14px;font-family:'Hanken Grotesk',sans-serif;color:#2b2420;outline:none;background:#fbf7f4;" />
+              <div onClick="{{ onAddZone }}" style="{{ addZoneStyle }}">Ajouter</div>
+            </div>
+          </div>
+
+          <!-- Gestion taches -->
+          <div style="padding:24px 24px 4px;font-family:'Bricolage Grotesque',sans-serif;font-size:16px;font-weight:700;color:#2b2420;">Gérer les tâches</div>
+          <div style="padding:6px 18px 0;display:flex;flex-direction:column;gap:8px;">
+            <sc-for list="{{ adminTasks }}" as="t" hint-placeholder-count="6">
+              <div style="background:#fff;border:1px solid #f0e3d8;border-radius:14px;padding:11px 14px;display:flex;align-items:center;gap:10px;">
+                <span style="flex:1;font-size:14px;font-weight:500;color:#2b2420;">{{ t.name }}</span>
+                <span style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:13px;color:#c2531f;background:#fdf0e3;border-radius:999px;padding:3px 10px;">{{ t.pts }} pts</span>
+                <div onClick="{{ t.onRemove }}" style="width:26px;height:26px;border-radius:999px;background:#f7efe8;display:flex;align-items:center;justify-content:center;color:#a89e94;font-size:16px;cursor:pointer;flex:none;">×</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="margin:12px 18px 0;background:#fff;border:1px dashed #d8cabb;border-radius:16px;padding:14px;">
+            <div style="font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#a89e94;margin-bottom:10px;">Nouvelle tâche</div>
+            <input value="{{ newTaskName }}" onInput="{{ onNameInput }}" placeholder="Nom de la tâche" style="width:100%;box-sizing:border-box;border:1px solid #ece2d8;border-radius:12px;padding:11px 13px;font-size:14px;font-family:'Hanken Grotesk',sans-serif;color:#2b2420;outline:none;background:#fbf7f4;" />
+            <div style="display:flex;gap:9px;margin-top:9px;">
+              <input value="{{ newTaskPts }}" onInput="{{ onPtsInput }}" inputmode="numeric" placeholder="Points" style="width:90px;box-sizing:border-box;border:1px solid #ece2d8;border-radius:12px;padding:11px 13px;font-size:14px;font-family:'Hanken Grotesk',sans-serif;color:#2b2420;outline:none;background:#fbf7f4;" />
+              <div onClick="{{ onAddTask }}" style="{{ addTaskStyle }}">Ajouter</div>
+            </div>
+          </div>
+
+          <!-- Export -->
+          <div style="margin:24px 18px 0;">
+            <div onClick="{{ onExport }}" style="background:#2b2420;color:#fff;border-radius:16px;padding:15px;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;"><div style="width:15px;height:18px;border:2px solid #f0a93f;border-radius:3px;position:relative;"><div style="position:absolute;top:4px;left:2px;right:2px;height:2px;background:#f0a93f;"></div><div style="position:absolute;top:8px;left:2px;right:2px;height:2px;background:#f0a93f;"></div></div><span style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:15px;">Exporter le rapport hebdo (PDF)</span></div>
+            <div onClick="{{ onReset }}" style="text-align:center;margin-top:12px;font-size:12.5px;color:#a89e94;cursor:pointer;">Réinitialiser les données de démo</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===================== TOAST ===================== -->
+      <sc-if value="{{ toast }}" hint-placeholder-val="">
+        <div style="position:absolute;left:50%;bottom:96px;transform:translateX(-50%);background:#2b2420;color:#fff;border-radius:999px;padding:11px 20px;font-size:13.5px;font-weight:600;z-index:50;white-space:nowrap;box-shadow:0 14px 30px -10px rgba(31,27,24,.5);animation:toastin .25s ease;">{{ toast }}</div>
+      </sc-if>
+
+      <!-- ===================== BOTTOM NAV ===================== -->
+      <sc-if value="{{ showNav }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute;left:0;right:0;bottom:0;height:78px;background:rgba(251,247,244,.92);backdrop-filter:blur(10px);border-top:1px solid #f0e3d8;display:flex;align-items:flex-start;justify-content:space-around;padding:11px 12px 0;z-index:30;">
+          <div onClick="{{ goHome }}" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;width:50px;">
+            <div style="width:19px;height:19px;border-radius:6px;background:{{ navHome }};"></div>
+            <span style="font-size:10px;font-weight:600;color:{{ navHome }};">Accueil</span>
+          </div>
+          <div onClick="{{ goLeaderboard }}" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;width:50px;">
+            <div style="display:flex;align-items:flex-end;gap:2.5px;height:19px;"><div style="width:4px;height:9px;border-radius:2px;background:{{ navLeader }};"></div><div style="width:4px;height:14px;border-radius:2px;background:{{ navLeader }};"></div><div style="width:4px;height:19px;border-radius:2px;background:{{ navLeader }};"></div></div>
+            <span style="font-size:10px;font-weight:600;color:{{ navLeader }};">Classement</span>
+          </div>
+          <div onClick="{{ goDeclare }}" style="display:flex;flex-direction:column;align-items:center;cursor:pointer;width:58px;">
+            <div style="width:54px;height:54px;border-radius:999px;background:linear-gradient(150deg,#e0552b,#f0a93f);box-shadow:0 12px 24px -8px rgba(224,85,43,.6);display:flex;align-items:center;justify-content:center;margin-top:-24px;color:#fff;font-size:30px;font-weight:300;">+</div>
+          </div>
+          <div onClick="{{ goHistory }}" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;width:50px;">
+            <div style="width:18px;height:18px;border-radius:999px;border:2.5px solid {{ navHist }};"></div>
+            <span style="font-size:10px;font-weight:600;color:{{ navHist }};">Activité</span>
+          </div>
+          <sc-if value="{{ showManagerTab }}" hint-placeholder-val="{{ true }}">
+            <div onClick="{{ openManager }}" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;width:50px;">
+              <div style="position:relative;display:flex;flex-direction:column;align-items:center;height:19px;justify-content:center;gap:2px;"><div style="width:9px;height:9px;border-radius:999px;background:{{ navMgr }};"></div><div style="width:16px;height:8px;border-radius:6px 6px 3px 3px;background:{{ navMgr }};"></div><div style="{{ mgrLockBadge }}"></div></div>
+              <span style="font-size:10px;font-weight:600;color:{{ navMgr }};">Manager</span>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+    </div>
+</div>
+
+
+<template id="__bundler_thumbnail">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="bt" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e0552b"/><stop offset="1" stop-color="#f0a93f"/></linearGradient></defs><rect width="100" height="100" fill="url(#bt)"/><path d="M33 52 l10 11 l24 -27" stroke="#fff" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</template></x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:460,&quot;height&quot;:880},&quot;startScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;nfc&quot;,&quot;home&quot;,&quot;declare&quot;,&quot;rewards&quot;,&quot;notifications&quot;,&quot;leaderboard&quot;,&quot;history&quot;,&quot;managerlock&quot;,&quot;admin&quot;],&quot;default&quot;:&quot;nfc&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;rewardGoal&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:300,&quot;min&quot;:100,&quot;max&quot;:1000,&quot;step&quot;:50,&quot;tsType&quot;:&quot;number&quot;},&quot;showManagerTab&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const start = (props && props.startScreen) || 'nfc';
+    this.state = {
+      view: start,
+      managerUnlocked: start === 'admin',
+      pin: '', pinMsg: '', pinError: false,
+      points: 215, xp: 625, streak: 5,
+      selectedZone: 'Cuisine — Étage 2', selectedTaskId: null, proofPhoto: null,
+      earnedPts: 0, lastTask: '', lastZone: '',
+      myPhoto: null, newTaskName: '', newTaskPts: '',
+      siteIndex: 0, toast: null, newZoneName: '', declares: [{ taskId: 'lv-vider', ts: Date.now() - 20 * 60000 }],
+      zones: [
+        { id: 'z1', name: 'Cuisine — Étage 2' },
+        { id: 'z2', name: 'Salle de pause' },
+        { id: 'z3', name: 'Cuisine — RDC' },
+        { id: 'z4', name: 'Sanitaires' }
+      ],
+      history: [
+        { id: 'h1', task: 'Lave-vaisselle vidé', pts: 10, meta: 'Cuisine — Étage 2 · Hier 17:10', status: 'ok', photo: false },
+        { id: 'h2', task: 'Micro-ondes lavé', pts: 12, meta: 'Salle de pause · Hier 09:05', status: 'ok', photo: true },
+        { id: 'h3', task: 'Cafetières remplies', pts: 8, meta: 'Cuisine — RDC · Lun. 08:40', status: 'ok', photo: false },
+        { id: 'h4', task: 'Capsules vidées', pts: 5, meta: 'Salle de pause · Lun. 08:38', status: 'ok', photo: false },
+        { id: 'h5', task: 'Sel rechargé', pts: 6, meta: 'Cuisine — Étage 2 · Ven. 16:20', status: 'ok', photo: false }
+      ],
+      tasks: [
+        { id: 'lv-vider', name: 'Vider le lave-vaisselle', pts: 10 },
+        { id: 'micro', name: 'Laver le micro-ondes', pts: 12 },
+        { id: 'cafe', name: 'Remplir les cafetières', pts: 8 },
+        { id: 'lv-lancer', name: 'Lancer le lave-vaisselle', pts: 5 },
+        { id: 'capsules', name: 'Vider les capsules', pts: 5 },
+        { id: 'sel', name: 'Remettre du sel', pts: 6 },
+        { id: 'rincage', name: 'Liquide de rinçage', pts: 6 }
+      ],
+      members: [
+        { name: 'Sofia', initials: 'SF', xp: 920, color: '#f0a93f', role: 'Employée', photo: null },
+        { name: 'Karim', initials: 'KA', xp: 780, color: '#7fb5a0', role: 'Employé', photo: null },
+        { name: 'Léa', initials: 'LE', xp: 540, color: '#b89cd0', role: 'Employée', photo: null },
+        { name: 'Manon', initials: 'MN', xp: 410, color: '#e0a4a4', role: 'Employée', photo: null }
+      ],
+      rewards: [
+        { id: 'the', name: 'Thé ou chocolat', desc: 'Boisson chaude au choix', cost: 80, color: '#7fb5a0' },
+        { id: 'cafe', name: 'Café offert', desc: 'À la machine partenaire', cost: 100, color: '#e0552b' },
+        { id: 'parking', name: 'Place de parking', desc: 'Réservée 1 semaine', cost: 250, color: '#b89cd0' },
+        { id: 'rtt', name: '1h de récupération', desc: 'À poser quand tu veux', cost: 300, color: '#f0a93f' },
+        { id: 'dej', name: 'Déjeuner offert', desc: "Au resto d'à côté", cost: 350, color: '#e0a4a4' },
+        { id: 'bon', name: 'Bon cadeau 15€', desc: 'Multi-enseignes', cost: 400, color: '#2b2420' }
+      ],
+      redeemed: [
+        { name: 'Café offert', when: 'il y a 3 j', cost: 100 },
+        { name: 'Thé ou chocolat', when: 'le 12 juin', cost: 80 }
+      ],
+      pending: [
+        { id: 'p1', who: 'Karim', initials: 'KA', color: '#7fb5a0', task: 'Laver le micro-ondes', pts: 12, when: 'il y a 5 min', photo: true, isMe: false },
+        { id: 'p2', who: 'Sofia', initials: 'SF', color: '#f0a93f', task: 'Vider le lave-vaisselle', pts: 10, when: 'il y a 12 min', photo: false, isMe: false },
+        { id: 'p3', who: 'Léa', initials: 'LE', color: '#b89cd0', task: 'Remplir les cafetières', pts: 8, when: 'il y a 1 h', photo: false, isMe: false }
+      ],
+      notifications: [
+        { id: 1, text: "C'est ton tour pour le lave-vaisselle cette semaine", time: 'il y a 10 min', read: false, kind: 'rotation' },
+        { id: 2, text: 'Sofia a validé ta tâche · +10 pts', time: 'il y a 1 h', read: false, kind: 'valid' },
+        { id: 3, text: 'Nouvelle récompense : Déjeuner offert disponible', time: 'Hier', read: false, kind: 'reward' },
+        { id: 4, text: "Le sel n'a pas été rechargé depuis 6 jours", time: 'Hier', read: true, kind: 'alert' }
+      ]
+    };
+    const _saved = this.loadSaved();
+    if (_saved) Object.assign(this.state, _saved);
+    this.COOLDOWN = 7200000;
+    this.MAX_DAY = 12;
+    this.PIN = '1234';
+    // Les salles/zones sont définies par le manager → state.zones
+    this.rotationData = [
+      { task: 'Vider le lave-vaisselle', who: 'Toi', initials: 'TR', color: '#e0552b', mine: true },
+      { task: 'Remplir les cafetières', who: 'Sofia', initials: 'SF', color: '#f0a93f', mine: false },
+      { task: 'Laver le micro-ondes', who: 'Karim', initials: 'KA', color: '#7fb5a0', mine: false },
+      { task: 'Vider les capsules', who: 'Léa', initials: 'LE', color: '#b89cd0', mine: false }
+    ];
+    this.badgeData = [
+      { name: 'Démarrage', color: '#7fb5a0', earned: true },
+      { name: 'Série 5 j', color: '#f0a93f', earned: true },
+      { name: 'Top 3', color: '#e0552b', earned: true },
+      { name: 'Lève-tôt', color: '#b89cd0', earned: true },
+      { name: '100 tâches', color: '#c9b8a8', earned: false },
+      { name: 'Roi du café', color: '#c9b8a8', earned: false }
+    ];
+    const cols = ['#e0552b', '#f0a93f', '#7fb5a0', '#2b2420', '#b89cd0'];
+    this.confetti = Array.from({ length: 18 }, (_, i) => {
+      const left = Math.round(Math.random() * 100), delay = (Math.random() * 0.5).toFixed(2), dur = (1.2 + Math.random() * 0.9).toFixed(2), size = Math.round(6 + Math.random() * 7), rot = Math.round(Math.random() * 360), round = Math.random() > 0.5;
+      return { style: `position:absolute;top:-12px;left:${left}%;width:${size}px;height:${size}px;background:${cols[i % cols.length]};border-radius:${round ? '999px' : '2px'};transform:rotate(${rot}deg);animation:fall ${dur}s ease-in ${delay}s forwards;` };
+    });
+  }
+
+  componentDidUpdate() { this.saveState(); }
+  loadSaved() { try { const r = localStorage.getItem('boost_v1'); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
+  saveState() { try { const s = this.state; const keys = ['points','xp','streak','history','tasks','members','myPhoto','pending','redeemed','notifications','declares','siteIndex','zones']; const o = {}; keys.forEach(k => o[k] = s[k]); localStorage.setItem('boost_v1', JSON.stringify(o)); } catch (e) {} }
+  resetData() { try { localStorage.removeItem('boost_v1'); } catch (e) {} location.reload(); }
+  lastByTask() { const m = {}; (this.state.declares || []).forEach(d => { if (!m[d.taskId] || d.ts > m[d.taskId]) m[d.taskId] = d.ts; }); return m; }
+  todayCount() { const n = new Date(); return (this.state.declares || []).filter(d => { const x = new Date(d.ts); return x.getDate() === n.getDate() && x.getMonth() === n.getMonth() && x.getFullYear() === n.getFullYear(); }).length; }
+  remainMs(id) { const l = this.lastByTask()[id]; if (!l) return 0; const r = this.COOLDOWN - (Date.now() - l); return r > 0 ? r : 0; }
+  fmtRemain(ms) { const m = Math.ceil(ms / 60000); if (m >= 60) { const h = Math.floor(m / 60), mm = m % 60; return mm ? h + ' h ' + mm : h + ' h'; } return m + ' min'; }
+  isBlocked(id) { return this.remainMs(id) > 0; }
+
+  go(v) { this.setState({ view: v }); }
+  identify() { this.setState({ view: 'home' }); }
+  pickZone(z) { this.setState({ selectedZone: z }); }
+  pickTask(id) { this.setState({ selectedTaskId: id }); }
+  toast(msg) { this.setState({ toast: msg }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: null }), 2600); }
+  readFileTo(e, cb) { const f = e.target.files && e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => cb(r.result); r.readAsDataURL(f); }
+  setProof(e) { this.readFileTo(e, (d) => this.setState({ proofPhoto: d })); }
+  clearProof() { this.setState({ proofPhoto: null }); }
+
+  validate() {
+    const t = this.state.tasks.find(x => x.id === this.state.selectedTaskId);
+    if (!t) return;
+    if (this.isBlocked(t.id) || this.todayCount() >= this.MAX_DAY) { this.toast('Action bloquée (anti-abus)'); return; }
+    const meta = `${this.state.selectedZone} · ${this.stamp()}`;
+    const hid = 'h' + Date.now();
+    this.setState(s => ({
+      points: s.points + t.pts, xp: s.xp + t.pts, earnedPts: t.pts, lastTask: t.name, lastZone: s.selectedZone,
+      declares: [{ taskId: t.id, ts: Date.now() }, ...(s.declares || [])],
+      history: [{ id: hid, task: t.name, pts: t.pts, meta, status: 'pending', photo: !!s.proofPhoto }, ...s.history],
+      pending: [{ id: 'pm' + Date.now(), who: 'Toi', initials: 'TR', color: '#e0552b', task: t.name, pts: t.pts, when: "à l'instant", photo: !!s.proofPhoto, isMe: true, histId: hid }, ...s.pending],
+      selectedTaskId: null, proofPhoto: null, view: 'success'
+    }));
+  }
+
+  validatePending(id, accept) {
+    const p = this.state.pending.find(x => x.id === id);
+    if (!p) return;
+    this.setState(s => {
+      let st = { pending: s.pending.filter(x => x.id !== id) };
+      if (p.isMe) {
+        if (accept) st.history = s.history.map(h => h.id === p.histId ? Object.assign({}, h, { status: 'ok' }) : h);
+        else { st.points = s.points - p.pts; st.xp = s.xp - p.pts; st.history = s.history.map(h => h.id === p.histId ? Object.assign({}, h, { status: 'refused' }) : h); }
+      }
+      return st;
+    });
+    this.toast(accept ? `Tâche validée · ${p.who}` : `Tâche refusée · ${p.who}`);
+  }
+
+  redeem(id) {
+    const r = this.state.rewards.find(x => x.id === id);
+    if (!r || this.state.points < r.cost) return;
+    this.setState(s => ({ points: s.points - r.cost, redeemed: [{ name: r.name, when: "à l'instant", cost: r.cost }, ...s.redeemed] }));
+    this.toast(`Échangé : ${r.name}`);
+  }
+
+  openManager() { if (this.state.managerUnlocked) this.setState({ view: 'admin' }); else this.setState({ view: 'managerlock', pin: '', pinMsg: '', pinError: false }); }
+  pressKey(d) {
+    if (this.state.pin.length >= 4) return;
+    const pin = this.state.pin + d;
+    if (pin.length < 4) { this.setState({ pin, pinMsg: '', pinError: false }); return; }
+    if (pin === this.PIN) this.setState({ pin: '', managerUnlocked: true, view: 'admin', pinMsg: '', pinError: false });
+    else this.setState({ pin: '', pinMsg: 'Code incorrect, réessaye', pinError: true });
+  }
+  delKey() { this.setState(s => ({ pin: s.pin.slice(0, -1), pinMsg: '', pinError: false })); }
+
+  handlePhoto(name) { return (e) => this.readFileTo(e, (d) => { if (name === 'Toi') this.setState({ myPhoto: d }); else this.setState(s => ({ members: s.members.map(m => m.name === name ? Object.assign({}, m, { photo: d }) : m) })); }); }
+  addTask() { const name = (this.state.newTaskName || '').trim(); const pts = parseInt(this.state.newTaskPts, 10); if (!name || !pts || pts < 1) return; this.setState(s => ({ tasks: s.tasks.concat([{ id: 't' + Date.now(), name, pts }]), newTaskName: '', newTaskPts: '' })); this.toast('Tâche ajoutée'); }
+  removeTask(id) { this.setState(s => ({ tasks: s.tasks.filter(t => t.id !== id) })); }
+  markAllRead() { this.setState(s => ({ notifications: s.notifications.map(n => Object.assign({}, n, { read: true })) })); }
+  readNotif(id) { this.setState(s => ({ notifications: s.notifications.map(n => n.id === id ? Object.assign({}, n, { read: true }) : n) })); }
+  cycleSite(dir) { this.setState(s => { const n = s.zones.length || 1; return { siteIndex: (s.siteIndex + dir + n) % n }; }); }
+  scanZone() { const zs = this.state.zones; if (!zs.length) return; const cur = zs.findIndex(z => z.name === this.state.selectedZone); const z = zs[(cur + 1) % zs.length]; this.setState({ selectedZone: z.name }); this.toast('Salle détectée : ' + z.name); }
+  addZone() { const name = (this.state.newZoneName || '').trim(); if (!name) return; this.setState(s => ({ zones: s.zones.concat([{ id: 'z' + Date.now(), name }]), newZoneName: '' })); this.toast('Salle ajoutée'); }
+  removeZone(id) { this.setState(s => { const zones = s.zones.filter(z => z.id !== id); return { zones, siteIndex: Math.min(s.siteIndex, Math.max(0, zones.length - 1)) }; }); }
+  printZone(name) { this.toast('QR « ' + name + ' » prêt à imprimer ✓'); }
+  exportReport() { this.toast('Rapport hebdo généré (PDF) ✓'); }
+
+  now() { return new Date(); }
+  pad(n) { return n < 10 ? '0' + n : '' + n; }
+  stamp() { const d = this.now(); return `Aujourd'hui · ${this.pad(d.getHours())}:${this.pad(d.getMinutes())}`; }
+  avatar(m, size, fs, ring) {
+    let s = `width:${size}px;height:${size}px;border-radius:999px;display:flex;align-items:center;justify-content:center;flex:none;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:${fs}px;overflow:hidden;`;
+    if (m.photo) s += `background-image:url(${m.photo});background-size:cover;background-position:center;`;
+    else s += `background:${m.color};color:${m.color === '#f0a93f' ? '#2b2420' : '#fff'};`;
+    if (ring) s += ring;
+    return { style: s, label: m.photo ? '' : m.initials };
+  }
+  levelInfo(total) {
+    const tiers = [{ min: 0, name: 'Débutant' }, { min: 150, name: 'Régulier' }, { min: 300, name: 'Confirmé' }, { min: 500, name: 'Expert' }, { min: 750, name: 'Légende' }, { min: 1100, name: 'Mythe' }];
+    let idx = 0; for (let i = 0; i < tiers.length; i++) if (total >= tiers[i].min) idx = i;
+    const cur = tiers[idx], next = tiers[idx + 1];
+    let pct = 100, xpLabel = 'Niveau max';
+    if (next) { pct = Math.round((total - cur.min) / (next.min - cur.min) * 100); xpLabel = `${total - cur.min} / ${next.min - cur.min} XP vers niv. ${idx + 2}`; }
+    return { num: idx + 1, name: cur.name, pct, xpLabel };
+  }
+  histTag(h) {
+    if (h.status === 'pending') return { tag: 'En attente', tagStyle: "font-size:11px;font-weight:700;border-radius:999px;padding:4px 9px;background:#fdf3e3;color:#a9781f;", dotStyle: 'width:9px;height:9px;border-radius:999px;flex:none;background:#f0a93f;' };
+    if (h.status === 'refused') return { tag: 'Refusée', tagStyle: "font-size:11px;font-weight:700;border-radius:999px;padding:4px 9px;background:#f3e7e2;color:#a89e94;text-decoration:line-through;", dotStyle: 'width:9px;height:9px;border-radius:999px;flex:none;background:#d8cabb;' };
+    return { tag: '+' + h.pts, tagStyle: "font-family:'Bricolage Grotesque',sans-serif;font-size:14px;font-weight:700;color:#2f8a4f;", dotStyle: 'width:9px;height:9px;border-radius:999px;flex:none;background:#2f8a4f;' };
+  }
+
+  renderVals() {
+    const s = this.state, d = this.now(), hr = d.getHours();
+    const goal = (this.props && this.props.rewardGoal) || 300;
+    const showMgr = this.props && this.props.showManagerTab !== undefined ? this.props.showManagerTab : true;
+
+    const me = { name: 'Toi', initials: 'TR', xp: s.xp, color: '#e0552b', photo: s.myPhoto, isMe: true, role: 'Toi · Employé' };
+    const all = s.members.map(o => Object.assign({ isMe: false }, o)).concat([me]).sort((a, b) => b.xp - a.xp);
+    const rank = all.findIndex(p => p.isMe) + 1;
+    const lvl = this.levelInfo(s.xp);
+
+    const ranking = all.map((p, i) => { const a = this.avatar(p, 30, 11); return { pos: i + 1, name: p.name, pts: p.xp, avatarStyle: a.style, avatarLabel: a.label, posColor: p.isMe ? '#e0552b' : '#a89e94', ptsColor: p.isMe ? '#e0552b' : '#2b2420', nameWeight: p.isMe ? 700 : 500, rowStyle: `display:flex;align-items:center;gap:11px;padding:11px 14px;border-radius:16px;${p.isMe ? 'background:#fff;border:1.5px solid #e0552b;box-shadow:0 10px 22px -14px rgba(224,85,43,.5);' : 'background:#fff;border:1px solid #f0e3d8;'}` }; });
+    const podH = [86, 64, 50], podOrder = [all[1], all[0], all[2]].filter(Boolean), podPos = [2, 1, 3];
+    const podium = podOrder.map((p, i) => { const big = podPos[i] === 1; const a = this.avatar(p, big ? 56 : 46, big ? 17 : 14, p.isMe ? 'box-shadow:0 0 0 3px #fbf7f4,0 0 0 5px #e0552b;' : ''); return { name: p.name, pos: podPos[i], pts: p.xp, avatarStyle: a.style, avatarLabel: a.label, barStyle: `width:${big ? 72 : 60}px;height:${podH[i]}px;border-radius:14px 14px 0 0;display:flex;align-items:flex-start;justify-content:center;padding-top:8px;background:${big ? 'linear-gradient(180deg,#e0552b,#f0a93f)' : (podPos[i] === 2 ? '#c9b8a8' : '#d8cabb')};` }; });
+
+    const _last = this.lastByTask(); const _dayCount = this.todayCount(); const _dayBlocked = _dayCount >= this.MAX_DAY;
+    const tasks = s.tasks.map(t => {
+      const rem = _last[t.id] ? this.COOLDOWN - (Date.now() - _last[t.id]) : 0; const blk = rem > 0;
+      const sel = t.id === s.selectedTaskId && !blk;
+      return {
+        name: t.name, pts: t.pts, onSelect: blk ? (() => {}) : (() => this.pickTask(t.id)),
+        rowStyle: blk ? 'display:flex;justify-content:space-between;align-items:center;border-radius:16px;padding:14px 16px;cursor:default;border:1.5px solid #efe6dc;background:#f4ede5;opacity:.72;' : `display:flex;justify-content:space-between;align-items:center;border-radius:16px;padding:14px 16px;cursor:pointer;border:1.5px solid ${sel ? '#e0552b' : '#f0e3d8'};background:${sel ? '#e0552b' : '#fff'};${sel ? 'box-shadow:0 12px 24px -12px rgba(224,85,43,.6);' : ''}`,
+        nameStyle: `font-size:14.5px;font-weight:${sel ? 700 : 500};color:${blk ? '#a89e94' : (sel ? '#fff' : '#2b2420')};`,
+        badgeLabel: blk ? ('\u23F3 ' + this.fmtRemain(rem)) : ('+' + t.pts),
+        badgeStyle: blk ? 'font-size:12px;font-weight:700;border-radius:999px;padding:3px 10px;background:#ece2d8;color:#a89e94;white-space:nowrap;' : `font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:13px;border-radius:999px;padding:3px 10px;background:${sel ? 'rgba(255,255,255,.22)' : '#fdf0e3'};color:${sel ? '#fff' : '#c2531f'};`
+      };
+    });
+    const zoneChips = s.zones.map(zo => { const z = zo.name; const sel = z === s.selectedZone; return { name: z, onPick: () => this.pickZone(z), chipStyle: `flex:none;white-space:nowrap;font-size:13px;font-weight:600;border-radius:999px;padding:9px 15px;cursor:pointer;background:${sel ? '#2b2420' : '#fff'};color:${sel ? '#fff' : '#6b625b'};border:1px solid ${sel ? '#2b2420' : '#f0e3d8'};` }; });
+    const adminZones = s.zones.map(zo => ({ name: zo.name, onRemove: () => this.removeZone(zo.id), onPrint: () => this.printZone(zo.name) }));
+    const canAddZone = (s.newZoneName || '').trim().length > 0;
+    const st = s.tasks.find(x => x.id === s.selectedTaskId), canValidate = !!st && !this.isBlocked(st.id) && !_dayBlocked;
+
+    const team = all.slice().sort((a, b) => b.xp - a.xp).map(p => { const a = this.avatar(p, 46, 15); return { name: p.name, pts: p.xp, role: p.role || 'Employé(e)', avatarStyle: a.style, avatarLabel: a.label, onPhoto: this.handlePhoto(p.name) }; });
+    const adminTasks = s.tasks.map(t => ({ name: t.name, pts: t.pts, onRemove: () => this.removeTask(t.id) }));
+    const canAdd = (s.newTaskName || '').trim() && parseInt(s.newTaskPts, 10) > 0;
+
+    const pending = s.pending.map(p => { const a = this.avatar(p, 38, 13); return { task: p.task, who: p.who, when: p.when, pts: p.pts, photo: p.photo, avatarStyle: a.style, avatarLabel: a.label, onAccept: () => this.validatePending(p.id, true), onRefuse: () => this.validatePending(p.id, false) }; });
+
+    const rotation = this.rotationData.map(r => { const a = this.avatar(r, 26, 10); return { task: r.task, who: r.who, avatarStyle: a.style, avatarLabel: a.label, rowStyle: `display:flex;align-items:center;gap:10px;border-radius:14px;padding:11px 14px;${r.mine ? 'background:#fdf0e3;border:1px solid #f3dcc4;' : 'background:#fff;border:1px solid #f0e3d8;'}` }; });
+    const rotMine = this.rotationData.find(r => r.mine);
+
+    const badges = this.badgeData.map(b => ({ name: b.name, labelColor: b.earned ? '#2b2420' : '#b3a99f', circleStyle: `width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;${b.earned ? `background:${b.color};` : 'background:#efe6dc;border:1px dashed #d8cabb;'}`, gemStyle: `width:17px;height:17px;border-radius:4px;transform:rotate(45deg);${b.earned ? 'background:rgba(255,255,255,.92);' : 'background:#cfc3b6;'}` }));
+
+    const rewards = s.rewards.map(r => { const aff = s.points >= r.cost; return { name: r.name, desc: r.desc, cost: r.cost, iconStyle: `width:46px;height:46px;border-radius:14px;flex:none;display:flex;align-items:center;justify-content:center;background:${r.color};`, onRedeem: () => this.redeem(r.id), btnLabel: aff ? 'Échanger' : `Manque ${r.cost - s.points}`, btnStyle: aff ? 'background:#2b2420;color:#fff;border-radius:999px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;' : 'background:#f0e7de;color:#a89e94;border-radius:999px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:default;white-space:nowrap;' }; });
+
+    const notifColors = { rotation: '#f0a93f', valid: '#2f8a4f', reward: '#e0552b', alert: '#c2531f' };
+    const notifications = s.notifications.map(n => ({ text: n.text, time: n.time, weight: n.read ? 500 : 700, onRead: () => this.readNotif(n.id), dotStyle: `width:9px;height:9px;border-radius:999px;flex:none;margin-top:5px;background:${n.read ? '#d8cabb' : (notifColors[n.kind] || '#e0552b')};`, rowStyle: `display:flex;gap:12px;align-items:flex-start;border-radius:16px;padding:13px 15px;cursor:pointer;${n.read ? 'background:#fff;border:1px solid #f0e3d8;' : 'background:#fffaf4;border:1px solid #f3dcc4;'}` }));
+    const unread = s.notifications.filter(n => !n.read).length;
+
+    const pinDots = [0, 1, 2, 3].map(i => ({ style: `width:14px;height:14px;border-radius:999px;${i < s.pin.length ? 'background:#f0a93f;' : 'background:rgba(255,255,255,.16);'}` }));
+    const keyBase = `width:72px;height:60px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-family:'Bricolage Grotesque',sans-serif;font-weight:600;font-size:24px;color:#fff;cursor:pointer;background:rgba(255,255,255,.08);`;
+    const keypad = ['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(n => ({ label: n, onPress: () => this.pressKey(n), style: keyBase })).concat([{ label: '', onPress: () => {}, style: 'width:72px;height:60px;' }, { label: '0', onPress: () => this.pressKey('0'), style: keyBase }, { label: '⌫', onPress: () => this.delKey(), style: keyBase.replace('font-size:24px', 'font-size:20px') + 'background:transparent;' }]);
+
+    const ha = this.avatar(me, 42, 14);
+    const navColor = (v) => (s.view === v) ? '#e0552b' : '#b3a99f';
+    const homeRecent = s.history.slice(0, 3).map(h => { const t = this.histTag(h); return { task: h.task, meta: h.meta, tag: t.tag, tagStyle: t.tagStyle }; });
+    const history = s.history.map(h => { const t = this.histTag(h); return { task: h.task, meta: h.meta, tag: t.tag, tagStyle: t.tagStyle, dotStyle: t.dotStyle }; });
+    const okPts = s.history.filter(h => h.status === 'ok').reduce((a, h) => a + h.pts, 0);
+
+    return {
+      isNfc: s.view === 'nfc', isHome: s.view === 'home', isDeclare: s.view === 'declare', isSuccess: s.view === 'success',
+      isRewards: s.view === 'rewards', isNotifications: s.view === 'notifications',
+      isLeaderboard: s.view === 'leaderboard', isHistory: s.view === 'history', isAdmin: s.view === 'admin', isManagerLock: s.view === 'managerlock',
+      showNav: ['home', 'leaderboard', 'history', 'admin'].includes(s.view),
+      showManagerTab: showMgr, toast: s.toast,
+
+      timeLabel: `${this.pad(d.getHours())}:${this.pad(d.getMinutes())}`,
+      onIdentify: () => this.identify(),
+
+      greeting: hr < 12 ? 'Bonjour' : (hr < 18 ? 'Bon après-midi' : 'Bonsoir'),
+      points: s.points, streak: s.streak, rankLabel: rank + (rank === 1 ? 'er' : 'e'),
+      homeAvatarStyle: ha.style, homeAvatarLabel: ha.label,
+      unreadCount: unread, bellBadge: unread ? 'position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;border-radius:999px;background:#e0552b;color:#fff;font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid #fbf7f4;' : 'display:none;',
+      levelNum: lvl.num, levelName: lvl.name, xpLabel: lvl.xpLabel, xpWidth: lvl.pct + '%',
+      hasRotation: !!rotMine, rotationTask: rotMine ? rotMine.task : '',
+      progressWidth: Math.min(100, Math.round(s.points / goal * 100)) + '%',
+      nextRewardLabel: s.points >= goal ? 'Tu peux échanger 1h de récup !' : `Plus que ${goal - s.points} pts pour 1h de récup`,
+      badges, homeRecent,
+
+      zoneChips, onScanZone: () => this.scanZone(), tasks, stampLabel: this.stamp(),
+      hasProof: !!s.proofPhoto, noProof: !s.proofPhoto, onProof: (e) => this.setProof(e), clearProof: () => this.clearProof(),
+      proofThumb: s.proofPhoto ? `width:42px;height:42px;border-radius:11px;flex:none;background-image:url(${s.proofPhoto});background-size:cover;background-position:center;` : 'width:42px;height:42px;border-radius:11px;flex:none;background:#efe6dc;',
+      dailyCount: _dayCount, dailyMax: this.MAX_DAY, dailyBlocked: _dayBlocked, onReset: () => this.resetData(),
+      validateLabel: _dayBlocked ? 'Limite du jour atteinte' : (canValidate ? `Valider · +${st.pts} pts` : 'Choisis une tâche'),
+      validateStyle: `border-radius:18px;padding:16px;text-align:center;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:16px;${canValidate ? 'background:#2b2420;color:#fff;cursor:pointer;box-shadow:0 14px 28px -12px rgba(43,36,32,.55);' : 'background:#ece2d8;color:#a89e94;cursor:default;'}`,
+      onValidate: () => this.validate(),
+
+      earnedPts: s.earnedPts, lastTask: s.lastTask, lastZone: s.lastZone, confetti: this.confetti,
+      rewards, redeemed: s.redeemed, notifications, markAllRead: () => this.markAllRead(),
+
+      siteName: (s.zones[s.siteIndex] || s.zones[0] || { name: '—' }).name, sitePrev: () => this.cycleSite(-1), siteNext: () => this.cycleSite(1),
+      podium, ranking,
+      history, weekCount: s.history.length, weekPoints: okPts,
+
+      adminKpis: [{ label: 'Tâches cette semaine', value: '47' }, { label: 'Points distribués', value: '1 240' }, { label: 'Participation', value: '5/6' }],
+      pending, pendingCount: s.pending.length, pendingEmpty: s.pending.length === 0,
+      pendingCountStyle: s.pending.length ? 'font-size:12px;font-weight:700;color:#fff;background:#e0552b;border-radius:999px;padding:3px 9px;' : 'font-size:12px;color:#a89e94;',
+      team, rotation, adminTasks, adminZones,
+      newZoneName: s.newZoneName, onZoneInput: (e) => this.setState({ newZoneName: e.target.value }), onAddZone: () => this.addZone(),
+      addZoneStyle: `flex:1;border-radius:12px;padding:11px;text-align:center;font-weight:700;font-size:14px;font-family:'Hanken Grotesk',sans-serif;${canAddZone ? 'background:#2b2420;color:#fff;cursor:pointer;' : 'background:#ece2d8;color:#a89e94;cursor:default;'}`,
+      newTaskName: s.newTaskName, newTaskPts: s.newTaskPts,
+      onNameInput: (e) => this.setState({ newTaskName: e.target.value }),
+      onPtsInput: (e) => this.setState({ newTaskPts: (e.target.value || '').replace(/[^0-9]/g, '') }),
+      onAddTask: () => this.addTask(),
+      addTaskStyle: `flex:1;border-radius:12px;padding:11px;text-align:center;font-weight:700;font-size:14px;font-family:'Hanken Grotesk',sans-serif;${canAdd ? 'background:#2b2420;color:#fff;cursor:pointer;' : 'background:#ece2d8;color:#a89e94;cursor:default;'}`,
+      onExport: () => this.exportReport(),
+
+      pinDots, pinRowStyle: `display:flex;gap:16px;margin-top:30px;${s.pinError ? 'animation:shake .4s;' : ''}`, pinMsg: s.pinMsg, pinMsgColor: s.pinError ? '#f0a93f' : 'rgba(255,255,255,.4)', keypad,
+
+      navHome: navColor('home'), navLeader: navColor('leaderboard'), navHist: navColor('history'), navMgr: (s.view === 'admin') ? '#e0552b' : '#b3a99f',
+      mgrLockBadge: s.managerUnlocked ? 'display:none;' : 'position:absolute;top:-3px;right:-7px;width:7px;height:7px;border-radius:999px;background:#f0a93f;',
+      openManager: () => this.openManager(),
+      goHome: () => this.go('home'), goDeclare: () => this.go('declare'), goLeaderboard: () => this.go('leaderboard'), goHistory: () => this.go('history'),
+      goRewards: () => this.go('rewards'), goNotifications: () => this.go('notifications')
+    };
+  }
+}
+</script>
+</body>
+</html>
