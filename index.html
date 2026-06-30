@@ -215,12 +215,18 @@ if ('serviceWorker' in navigator) {
           <div style="margin:18px 18px 0;background:linear-gradient(150deg,#e0552b,#f0a93f);border-radius:26px;padding:22px;color:#fff;position:relative;overflow:hidden;">
             <div style="position:absolute;top:-30px;right:-30px;width:130px;height:130px;border-radius:999px;background:rgba(255,255,255,.12);"></div>
             <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-              <div style="font-size:13px;opacity:.92;">Solde à dépenser</div>
-              <div onClick="{{ goRewards }}" style="background:rgba(255,255,255,.22);border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:700;cursor:pointer;">Échanger ›</div>
+              <div style="font-size:13px;opacity:.92;">Mes points</div>
+              <div onClick="{{ goRewards }}" style="background:rgba(255,255,255,.22);border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:700;cursor:pointer;">Voir tout ›</div>
             </div>
             <div style="display:flex;align-items:baseline;gap:8px;margin-top:2px;"><span style="font-family:'Bricolage Grotesque',sans-serif;font-size:50px;font-weight:800;line-height:1;">{{ points }}</span><span style="font-size:15px;opacity:.9;font-weight:600;">pts</span></div>
-            <div style="margin-top:14px;height:8px;background:rgba(255,255,255,.28);border-radius:999px;overflow:hidden;"><div style="width:{{ progressWidth }};height:100%;background:#fff;border-radius:999px;"></div></div>
-            <div style="font-size:12.5px;margin-top:8px;opacity:.95;">{{ nextRewardLabel }}</div>
+            <div style="margin-top:16px;display:flex;flex-direction:column;gap:8px;">
+              <sc-for list="{{ homeRewards }}" as="r" hint-placeholder-count="3">
+                <div onClick="{{ r.onTap }}" style="display:flex;align-items:center;gap:11px;background:rgba(255,255,255,.16);border-radius:14px;padding:10px 12px;cursor:pointer;">
+                  <div style="flex:1;min-width:0;"><div style="font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ r.name }}</div><div style="font-size:11.5px;opacity:.85;">{{ r.statusLabel }}</div></div>
+                  <div style="{{ r.badgeStyle }}">{{ r.cost }} pts</div>
+                </div>
+              </sc-for>
+            </div>
           </div>
 
           <div style="margin:12px 18px 0;background:#fff;border:1px solid #f0e3d8;border-radius:18px;padding:14px 16px;">
@@ -229,14 +235,6 @@ if ('serviceWorker' in navigator) {
             </div>
             <div style="margin-top:11px;height:7px;background:#f0e7de;border-radius:999px;overflow:hidden;"><div style="width:{{ xpWidth }};height:100%;background:linear-gradient(90deg,#e0552b,#f0a93f);border-radius:999px;"></div></div>
           </div>
-
-          <sc-if value="{{ hasRotation }}" hint-placeholder-val="{{ true }}">
-            <div onClick="{{ goNotifications }}" style="margin:12px 18px 0;background:#fdf0e3;border:1px solid #f3dcc4;border-radius:16px;padding:13px 15px;display:flex;align-items:center;gap:12px;cursor:pointer;">
-              <div style="width:34px;height:34px;border-radius:10px;background:#f0a93f;display:flex;align-items:center;justify-content:center;flex:none;"><div style="width:13px;height:13px;border:2.5px solid #fff;border-radius:999px;"></div></div>
-              <div style="flex:1;"><div style="font-size:13px;font-weight:700;color:#2b2420;">À ton tour cette semaine</div><div style="font-size:12px;color:#a9781f;">{{ rotationTask }}</div></div>
-              <span style="font-size:18px;color:#c2531f;">›</span>
-            </div>
-          </sc-if>
 
           <div style="display:flex;gap:11px;padding:12px 18px 0;">
             <div style="flex:1;background:#fff;border:1px solid #f0e3d8;border-radius:18px;padding:13px 15px;"><div style="font-family:'Bricolage Grotesque',sans-serif;font-size:20px;font-weight:700;color:#2b2420;">{{ streak }} j</div><div style="font-size:11px;color:#8a7f76;margin-top:1px;">série en cours</div></div>
@@ -553,17 +551,6 @@ if ('serviceWorker' in navigator) {
           </div>
 
           <!-- Rotation -->
-          <div style="padding:24px 24px 4px;font-family:'Bricolage Grotesque',sans-serif;font-size:16px;font-weight:700;color:#2b2420;">Rotation de la semaine</div>
-          <div style="padding:8px 18px 0;display:flex;flex-direction:column;gap:8px;">
-            <sc-for list="{{ rotation }}" as="r" hint-placeholder-count="4">
-              <div style="{{ r.rowStyle }}">
-                <span style="flex:1;font-size:13.5px;font-weight:500;color:#2b2420;">{{ r.task }}</span>
-                <span style="{{ r.avatarStyle }}">{{ r.avatarLabel }}</span>
-                <span style="font-size:12.5px;font-weight:600;color:#6b625b;">{{ r.who }}</span>
-              </div>
-            </sc-for>
-          </div>
-
           <!-- Salles & zones -->
           <div style="padding:24px 24px 4px;display:flex;justify-content:space-between;align-items:baseline;"><span style="font-family:'Bricolage Grotesque',sans-serif;font-size:16px;font-weight:700;color:#2b2420;">Salles &amp; zones</span><span style="font-size:11.5px;color:#8a7f76;">QR à imprimer pour chaque salle</span></div>
           <div style="padding:6px 18px 0;display:flex;flex-direction:column;gap:8px;">
@@ -993,6 +980,14 @@ class Component extends DCLogic {
     } catch (e) { this.toast('Erreur de génération du QR'); return; }
 
     const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    // Tâches rattachées à cette salle (avec points)
+    const zoneTasks = this.state.tasks.filter(t => t.zoneId === zone.id);
+    let tasksHtml = '';
+    if (zoneTasks.length) {
+      tasksHtml = '<div class="tasks"><div class="tasks-h">Tâches dans cette salle</div>' +
+        zoneTasks.map(t => '<div class="trow"><span>' + esc(t.name) + '</span><span class="tpts">' + t.pts + ' pts</span></div>').join('') +
+        '</div>';
+    }
     const html =
       '<!doctype html><html><head><meta charset="utf-8"><title>QR — ' + esc(zone.name) + '</title>' +
       '<style>@page{margin:18mm;}*{box-sizing:border-box;}' +
@@ -1004,6 +999,10 @@ class Component extends DCLogic {
       '.sub{font-size:14px;color:#8a7f76;margin-bottom:22px;}' +
       'img{width:300px;height:300px;image-rendering:pixelated;}' +
       '.foot{font-size:12px;color:#a89e94;margin-top:20px;}' +
+      '.tasks{margin-top:26px;text-align:left;border-top:1px solid #f0e3d8;padding-top:18px;}' +
+      '.tasks-h{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#a89e94;margin-bottom:10px;text-align:center;}' +
+      '.trow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:7px 0;border-bottom:1px solid #f6efe8;font-size:15px;}' +
+      '.tpts{font-weight:700;color:#c2531f;white-space:nowrap;}' +
       '@media print{.noprint{display:none;}.card{border:none;}}' +
       'button{margin-top:24px;padding:12px 26px;border:none;border-radius:999px;background:#e0552b;color:#fff;' +
       'font-size:15px;font-weight:700;cursor:pointer;}</style></head><body><div class="card">' +
@@ -1011,6 +1010,7 @@ class Component extends DCLogic {
       '<div class="title">' + esc(zone.name) + '</div>' +
       '<div class="sub">Scanne ce QR pour confirmer ta présence</div>' +
       '<img src="' + dataUrl + '" alt="QR ' + esc(zone.name) + '">' +
+      tasksHtml +
       '<div class="foot">Affiche-le dans la salle &middot; impression A4 ou autocollant</div>' +
       '<button class="noprint" onclick="window.print()">Imprimer</button>' +
       '</div><script>window.addEventListener("load",function(){setTimeout(function(){window.print();},350);});<\/script>' +
@@ -1130,13 +1130,19 @@ class Component extends DCLogic {
     const pendingDecls = (s.declarations || []).filter(x => x.status === 'pending');
     const pending = pendingDecls.map(p => { const av = { name: p.userName, initials: p.userInitials, color: p.userColor }; const a = this.avatar(av, 38, 13); return { task: p.taskName, who: p.userName, when: this.ago(p.ts), pts: p.pts, photo: !!p.photo, avatarStyle: a.style, avatarLabel: a.label, onAccept: () => this.validatePending(p.id, true), onRefuse: () => this.validatePending(p.id, false) }; });
 
-    const rotation = this.rotationData.map(r => { const a = this.avatar(r, 26, 10); return { task: r.task, who: r.who, avatarStyle: a.style, avatarLabel: a.label, rowStyle: `display:flex;align-items:center;gap:10px;border-radius:14px;padding:11px 14px;${r.mine ? 'background:#fdf0e3;border:1px solid #f3dcc4;' : 'background:#fff;border:1px solid #f0e3d8;'}` }; });
-    const rotMine = this.rotationData.find(r => r.mine);
-
     const badges = this.badgeData.map(b => ({ name: b.name, labelColor: b.earned ? '#2b2420' : '#b3a99f', circleStyle: `width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;${b.earned ? `background:${b.color};` : 'background:#efe6dc;border:1px dashed #d8cabb;'}`, gemStyle: `width:17px;height:17px;border-radius:4px;transform:rotate(45deg);${b.earned ? 'background:rgba(255,255,255,.92);' : 'background:#cfc3b6;'}` }));
 
     const myPoints = (s.me && s.me.points) || 0;
     const rewards = s.rewards.map(r => { const aff = myPoints >= r.cost; return { name: r.name, desc: r.desc, cost: r.cost, iconStyle: `width:46px;height:46px;border-radius:14px;flex:none;display:flex;align-items:center;justify-content:center;background:${r.color};`, onRedeem: () => this.redeem(r.id), btnLabel: aff ? 'Échanger' : `Manque ${r.cost - myPoints}`, btnStyle: aff ? 'background:#2b2420;color:#fff;border-radius:999px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;' : 'background:#f0e7de;color:#a89e94;border-radius:999px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:default;white-space:nowrap;' }; });
+    // 3 récompenses les plus proches : abordables d'abord (coût décroissant), puis les prochaines à viser (coût croissant)
+    const affordable = s.rewards.filter(r => myPoints >= r.cost).sort((a, b) => b.cost - a.cost);
+    const upcoming = s.rewards.filter(r => myPoints < r.cost).sort((a, b) => a.cost - b.cost);
+    const homeRewards = affordable.concat(upcoming).slice(0, 3).map(r => {
+      const aff = myPoints >= r.cost;
+      return { name: r.name, cost: r.cost, onTap: () => this.go('rewards'),
+        statusLabel: aff ? 'Disponible ✓' : 'Plus que ' + (r.cost - myPoints) + ' pts',
+        badgeStyle: 'flex:none;font-size:12px;font-weight:700;border-radius:999px;padding:4px 11px;white-space:nowrap;' + (aff ? 'background:#fff;color:#c2531f;' : 'background:rgba(255,255,255,.22);color:#fff;') };
+    });
 
     const notifColors = { rotation: '#f0a93f', valid: '#2f8a4f', reward: '#e0552b', alert: '#c2531f' };
     const notifications = s.notifications.map(n => ({ text: n.text, time: n.time, weight: n.read ? 500 : 700, onRead: () => this.readNotif(n.id), dotStyle: `width:9px;height:9px;border-radius:999px;flex:none;margin-top:5px;background:${n.read ? '#d8cabb' : (notifColors[n.kind] || '#e0552b')};`, rowStyle: `display:flex;gap:12px;align-items:flex-start;border-radius:16px;padding:13px 15px;cursor:pointer;${n.read ? 'background:#fff;border:1px solid #f0e3d8;' : 'background:#fffaf4;border:1px solid #f3dcc4;'}` }));
@@ -1178,10 +1184,8 @@ class Component extends DCLogic {
       homeAvatarStyle: ha.style, homeAvatarLabel: ha.label,
       unreadCount: unread, bellBadge: unread ? 'position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;border-radius:999px;background:#e0552b;color:#fff;font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid #fbf7f4;' : 'display:none;',
       levelNum: lvl.num, levelName: lvl.name, xpLabel: lvl.xpLabel, xpWidth: lvl.pct + '%',
-      hasRotation: !!rotMine, rotationTask: rotMine ? rotMine.task : '',
-      progressWidth: Math.min(100, Math.round(myPoints / goal * 100)) + '%',
-      nextRewardLabel: myPoints >= goal ? 'Tu peux échanger 1h de récup !' : `Plus que ${goal - myPoints} pts pour 1h de récup`,
-      badges, homeRecent,
+      hasRotation: false, rotationTask: '',
+      badges, homeRecent, homeRewards,
 
       zoneChips, onScanZone: () => this.scanZone(), tasks, stampLabel: this.stamp(),
       hasProof: !!s.proofPhoto, noProof: !s.proofPhoto, onProof: (e) => this.setProof(e), clearProof: () => this.clearProof(),
@@ -1201,7 +1205,7 @@ class Component extends DCLogic {
       adminKpis: [{ label: 'Employés', value: '' + (s.users || []).length }, { label: 'Tâches', value: '' + (s.tasks || []).length }, { label: 'En attente', value: '' + pendingDecls.length }],
       pending, pendingCount: pendingDecls.length, pendingEmpty: pendingDecls.length === 0,
       pendingCountStyle: pendingDecls.length ? 'font-size:12px;font-weight:700;color:#fff;background:#e0552b;border-radius:999px;padding:3px 9px;' : 'font-size:12px;color:#a89e94;',
-      team, rotation, adminTasks, adminZones,
+      team, adminTasks, adminZones,
       teamCountLabel: (s.users || []).length + ' employé' + ((s.users || []).length > 1 ? 's' : ''),
       newUserName: s.newUserName, newUserCode: s.newUserCode,
       onUserNameInput: (e) => this.setState({ newUserName: e.target.value }),
