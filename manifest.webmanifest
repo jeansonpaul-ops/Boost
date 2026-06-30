@@ -1,7 +1,7 @@
 {
-  "name": "Boost — Tâches d'équipe",
-  "short_name": "Boost",
-  "description": "Transforme les tâches ménagères partagées en points et récompenses.",
+  "name": "Clean Check — Tâches d'équipe",
+  "short_name": "Clean Check",
+  "description": "Transforme les tâches d'équipe en points et récompenses.",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",

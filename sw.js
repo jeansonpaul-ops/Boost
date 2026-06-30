@@ -1,7 +1,7 @@
-/* Boost PWA — service worker
+/* Clean Check PWA — service worker
    Stratégie : "stale-while-revalidate" — on sert depuis le cache tout de suite,
    puis on met à jour en arrière-plan. L'app fonctionne hors-ligne après la 1re visite. */
-const CACHE = 'boost-v2';
+const CACHE = 'clean-check-v4';
 const CORE = [
   './',
   'index.html',

@@ -3,19 +3,130 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Boost — Tâches d'équipe</title>
-<meta name="description" content="Boost : transforme les tâches ménagères partagées en points et récompenses.">
+<title>Clean Check — Tâches d'équipe</title>
+<meta name="description" content="Clean Check : transforme les tâches d'équipe en points et récompenses.">
 <meta name="theme-color" content="#e0552b">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Boost">
+<meta name="apple-mobile-web-app-title" content="Clean Check">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <script src="./support.js"></script>
 <script src="./vendor/qrcode.js"></script>
 <script src="./vendor/jsQR.js"></script>
+
+<!-- Firebase SDK (compat build, exposes global `firebase`) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<!-- ===================================================================
+     Clean Check — couche Firestore (CC)
+     Toute la communication avec la base passe par window.CC.
+     Modèle : /teams/{TEAM}/{users,zones,tasks,declarations,rewards,redemptions}
+     =================================================================== -->
+<script>
+(function () {
+  var firebaseConfig = {
+    apiKey: "AIzaSyBXEJeX_LzMgBSjVZn1HhFRSZgGO9DVfEo",
+    authDomain: "clean-check-7a672.firebaseapp.com",
+    projectId: "clean-check-7a672",
+    storageBucket: "clean-check-7a672.firebasestorage.app",
+    messagingSenderId: "539306891947",
+    appId: "1:539306891947:web:67242b73e63d2ef8c5b5ee"
+  };
+
+  var TEAM = 'luxvisual'; // un seul team pour l'instant
+
+  var CC = {
+    ready: false,
+    uid: null,
+    _db: null,
+    _err: null,
+    team: TEAM,
+    // file d'attente de callbacks à exécuter dès que l'auth est prête
+    _onReady: [],
+  };
+
+  try {
+    firebase.initializeApp(firebaseConfig);
+    CC._db = firebase.firestore();
+  } catch (e) {
+    CC._err = e;
+    console.error('[CC] init Firebase échouée', e);
+  }
+
+  // --- Auth anonyme : on obtient un uid par appareil ---
+  if (CC._db) {
+    firebase.auth().signInAnonymously().catch(function (e) {
+      CC._err = e;
+      console.error('[CC] auth anonyme échouée', e);
+    });
+    firebase.auth().onAuthStateChanged(function (user) {
+      if (user) {
+        CC.uid = user.uid;
+        CC.ready = true;
+        var q = CC._onReady.slice(); CC._onReady = [];
+        q.forEach(function (cb) { try { cb(); } catch (e) { console.error(e); } });
+      }
+    });
+  }
+
+  CC.whenReady = function (cb) {
+    if (CC.ready) { cb(); } else { CC._onReady.push(cb); }
+  };
+
+  // --- Helpers chemins ---
+  function col(name) { return CC._db.collection('teams').doc(TEAM).collection(name); }
+  CC.col = col;
+
+  // --- Abonnements temps réel : appellent cb(arrayDeDocs) à chaque changement ---
+  // Renvoie la fonction de désabonnement.
+  CC.subscribe = function (name, cb, orderField, orderDir) {
+    var ref = col(name);
+    if (orderField) ref = ref.orderBy(orderField, orderDir || 'asc');
+    return ref.onSnapshot(function (snap) {
+      var out = [];
+      snap.forEach(function (d) { var o = d.data(); o.id = d.id; out.push(o); });
+      cb(out);
+    }, function (err) {
+      console.error('[CC] subscribe ' + name + ' erreur', err);
+    });
+  };
+
+  // --- CRUD génériques ---
+  CC.add = function (name, data) { return col(name).add(data); };
+  CC.set = function (name, id, data) { return col(name).doc(id).set(data, { merge: true }); };
+  CC.update = function (name, id, data) { return col(name).doc(id).update(data); };
+  CC.remove = function (name, id) { return col(name).doc(id).delete(); };
+  CC.get = function (name, id) { return col(name).doc(id).get(); };
+
+  // --- Anti-rejeu : une déclaration de ce user+task aujourd'hui existe-t-elle ? ---
+  CC.declaredToday = function (userId, taskId) {
+    var start = new Date(); start.setHours(0, 0, 0, 0);
+    return col('declarations')
+      .where('userId', '==', userId)
+      .where('taskId', '==', taskId)
+      .where('ts', '>=', start.getTime())
+      .limit(1).get()
+      .then(function (snap) { return !snap.empty; });
+  };
+
+  // --- Identité : retrouver un user par son code 4 chiffres ---
+  CC.findUserByCode = function (code) {
+    return col('users').where('code', '==', code).limit(1).get()
+      .then(function (snap) {
+        if (snap.empty) return null;
+        var d = snap.docs[0]; var o = d.data(); o.id = d.id; return o;
+      });
+  };
+
+  window.CC = CC;
+})();
+</script>
+
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
@@ -50,30 +161,27 @@ if ('serviceWorker' in navigator) {
         <div style="position:absolute;inset:0;background:radial-gradient(120% 80% at 50% -10%,#3a322c,#211c19 70%);color:#fff;display:flex;flex-direction:column;">
           <div style="display:flex;justify-content:space-between;align-items:center;padding:42px 26px 0;font-size:13px;font-weight:600;color:rgba(255,255,255,.85);"><span>{{ timeLabel }}</span><span style="width:17px;height:10px;border:1.5px solid rgba(255,255,255,.7);border-radius:2px;"></span></div>
           <div style="padding:48px 30px 0;">
-            <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:30px;letter-spacing:-.02em;color:#f0a93f;">Boost</div>
+            <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:30px;letter-spacing:-.02em;color:#f0a93f;">Clean<span style="color:#fff;">Check</span></div>
             <div style="font-size:14px;color:rgba(255,255,255,.6);margin-top:6px;">Récompenses tâches d'équipe</div>
           </div>
-          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:38px;">
-            <div onClick="{{ onIdentify }}" style="position:relative;width:200px;height:200px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
-              <div style="position:absolute;width:200px;height:200px;border-radius:999px;border:2px solid rgba(240,169,63,.6);animation:pulsering 2.4s ease-out infinite;"></div>
-              <div style="position:absolute;width:200px;height:200px;border-radius:999px;border:2px solid rgba(240,169,63,.6);animation:pulsering 2.4s ease-out infinite;animation-delay:1.2s;"></div>
-              <div style="width:128px;height:128px;border-radius:999px;background:linear-gradient(150deg,#e0552b,#f0a93f);display:flex;align-items:center;justify-content:center;box-shadow:0 20px 40px -12px rgba(224,85,43,.7);">
-                <div style="position:relative;width:52px;height:52px;">
-                  <div style="position:absolute;top:0;left:0;width:15px;height:15px;border:3px solid #fff;border-radius:3px;"></div>
-                  <div style="position:absolute;top:0;right:0;width:15px;height:15px;border:3px solid #fff;border-radius:3px;"></div>
-                  <div style="position:absolute;bottom:0;left:0;width:15px;height:15px;border:3px solid #fff;border-radius:3px;"></div>
-                  <div style="position:absolute;bottom:3px;right:3px;width:9px;height:9px;background:#fff;border-radius:2px;"></div>
-                  <div style="position:absolute;bottom:14px;right:1px;width:6px;height:6px;background:#fff;border-radius:1px;"></div>
-                  <div style="position:absolute;top:2px;right:20px;width:5px;height:5px;background:#fff;border-radius:1px;"></div>
-                </div>
-              </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:0 30px;">
+            <div style="width:96px;height:96px;border-radius:28px;background:linear-gradient(150deg,#e0552b,#f0a93f);display:flex;align-items:center;justify-content:center;box-shadow:0 20px 40px -12px rgba(224,85,43,.7);">
+              <svg width="52" height="52" viewBox="0 0 52 52" fill="none"><path d="M11 28 L21 38 L41 16" stroke="#ffffff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.5"/><path d="M21 30 L29 38 L45 18" stroke="#ffffff" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </div>
             <div style="text-align:center;">
-              <div style="font-family:'Bricolage Grotesque',sans-serif;font-size:23px;font-weight:700;">Connecte-toi</div>
-              <div style="font-size:14px;color:rgba(255,255,255,.6);margin-top:7px;max-width:240px;line-height:1.5;">Entre ton code perso à 4 chiffres, ou touche le cercle pour simuler.</div>
+              <div style="font-family:'Bricolage Grotesque',sans-serif;font-size:22px;font-weight:700;">Entre ton code</div>
+              <div style="font-size:13.5px;color:rgba(255,255,255,.55);margin-top:6px;">Code perso à 4 chiffres</div>
+            </div>
+            <div style="{{ loginRowStyle }}">
+              <sc-for list="{{ loginDots }}" as="d" hint-placeholder-count="4"><div style="{{ d.style }}"></div></sc-for>
+            </div>
+            <div style="height:16px;font-size:13px;font-weight:600;color:{{ loginMsgColor }};">{{ loginMsg }}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:14px;width:248px;justify-content:center;">
+              <sc-for list="{{ loginKeypad }}" as="k" hint-placeholder-count="12"><div onClick="{{ k.onPress }}" style="{{ k.style }}">{{ k.label }}</div></sc-for>
             </div>
           </div>
-          <div style="padding:0 26px 40px;text-align:center;font-size:13px;color:rgba(255,255,255,.45);">Première connexion&nbsp;? Demande ton code au manager</div>
+          <div style="padding:0 26px 30px;text-align:center;font-size:12.5px;color:rgba(255,255,255,.4);">{{ ccStatus }}</div>
+          <div style="padding:0 26px 30px;text-align:center;font-size:13px;color:rgba(255,255,255,.45);">Première connexion&nbsp;? Demande ton code au manager</div>
         </div>
       </sc-if>
 
@@ -83,7 +191,7 @@ if ('serviceWorker' in navigator) {
           <div style="display:flex;justify-content:space-between;align-items:center;padding:0 22px;">
             <div>
               <div style="font-size:13px;color:#8a7f76;">{{ greeting }}</div>
-              <div style="font-family:'Bricolage Grotesque',sans-serif;font-size:21px;font-weight:700;color:#2b2420;letter-spacing:-.01em;">Thomas Renard</div>
+              <div style="font-family:'Bricolage Grotesque',sans-serif;font-size:21px;font-weight:700;color:#2b2420;letter-spacing:-.01em;">{{ meName }}</div>
             </div>
             <div style="display:flex;align-items:center;gap:11px;">
               <div onClick="{{ goNotifications }}" style="position:relative;width:42px;height:42px;border-radius:14px;background:#fff;border:1px solid #f0e3d8;display:flex;align-items:center;justify-content:center;cursor:pointer;">
@@ -411,7 +519,7 @@ if ('serviceWorker' in navigator) {
           </div>
 
           <!-- Equipe -->
-          <div style="padding:24px 24px 4px;display:flex;justify-content:space-between;align-items:baseline;"><span style="font-family:'Bricolage Grotesque',sans-serif;font-size:16px;font-weight:700;color:#2b2420;">Équipe</span><span style="font-size:11.5px;color:#8a7f76;">Touche une photo pour la changer</span></div>
+          <div style="padding:24px 24px 4px;display:flex;justify-content:space-between;align-items:baseline;"><span style="font-family:'Bricolage Grotesque',sans-serif;font-size:16px;font-weight:700;color:#2b2420;">Équipe</span><span style="font-size:11.5px;color:#8a7f76;">{{ teamCountLabel }}</span></div>
           <div style="padding:8px 18px 0;display:flex;flex-direction:column;gap:9px;">
             <sc-for list="{{ team }}" as="m" hint-placeholder-count="5">
               <div style="background:#fff;border:1px solid #f0e3d8;border-radius:16px;padding:11px 14px;display:flex;align-items:center;gap:13px;">
@@ -420,9 +528,18 @@ if ('serviceWorker' in navigator) {
                   <div style="position:absolute;right:-3px;bottom:-3px;width:20px;height:20px;border-radius:999px;background:#e0552b;border:2px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;line-height:1;">+</div>
                   <input type="file" accept="image/*" onChange="{{ m.onPhoto }}" style="display:none;" />
                 </label>
-                <div style="flex:1;"><div style="font-size:14px;font-weight:600;color:#2b2420;">{{ m.name }}</div><div style="font-size:11.5px;color:#8a7f76;">{{ m.pts }} XP · {{ m.role }}</div></div>
+                <div style="flex:1;"><div style="font-size:14px;font-weight:600;color:#2b2420;">{{ m.name }}</div><div style="font-size:11.5px;color:#8a7f76;">{{ m.pts }} XP · {{ m.role }} · code {{ m.code }}</div></div>
+                <div onClick="{{ m.onRemove }}" style="width:26px;height:26px;border-radius:999px;background:#f7efe8;display:flex;align-items:center;justify-content:center;color:#a89e94;font-size:16px;cursor:pointer;flex:none;">×</div>
               </div>
             </sc-for>
+          </div>
+          <div style="margin:12px 18px 0;background:#fff;border:1px dashed #d8cabb;border-radius:16px;padding:14px;">
+            <div style="font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#a89e94;margin-bottom:10px;">Nouvel employé</div>
+            <input value="{{ newUserName }}" onInput="{{ onUserNameInput }}" placeholder="Nom et prénom" style="width:100%;box-sizing:border-box;border:1px solid #ece2d8;border-radius:12px;padding:11px 13px;font-size:14px;font-family:'Hanken Grotesk',sans-serif;color:#2b2420;outline:none;background:#fbf7f4;" />
+            <div style="display:flex;gap:9px;margin-top:9px;">
+              <input value="{{ newUserCode }}" onInput="{{ onUserCodeInput }}" inputmode="numeric" placeholder="Code 4 chiffres" style="flex:1;box-sizing:border-box;border:1px solid #ece2d8;border-radius:12px;padding:11px 13px;font-size:14px;font-family:'Hanken Grotesk',sans-serif;color:#2b2420;outline:none;background:#fbf7f4;" />
+              <div onClick="{{ onAddUser }}" style="{{ addUserStyle }}">Ajouter</div>
+            </div>
           </div>
 
           <!-- Rotation -->
@@ -467,8 +584,12 @@ if ('serviceWorker' in navigator) {
           <div style="padding:6px 18px 0;display:flex;flex-direction:column;gap:8px;">
             <sc-for list="{{ adminTasks }}" as="t" hint-placeholder-count="6">
               <div style="background:#fff;border:1px solid #f0e3d8;border-radius:14px;padding:11px 14px;display:flex;align-items:center;gap:10px;">
-                <span style="flex:1;font-size:14px;font-weight:500;color:#2b2420;">{{ t.name }}</span>
-                <span style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:13px;color:#c2531f;background:#fdf0e3;border-radius:999px;padding:3px 10px;">{{ t.pts }} pts</span>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:14px;font-weight:500;color:#2b2420;">{{ t.name }}</div>
+                  <div style="font-size:11.5px;color:{{ t.zoneColor }};margin-top:2px;">{{ t.zoneLabel }}</div>
+                </div>
+                <span style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:13px;color:#c2531f;background:#fdf0e3;border-radius:999px;padding:3px 10px;flex:none;">{{ t.pts }} pts</span>
+                <div onClick="{{ t.onPrint }}" title="Imprimer le QR" style="width:30px;height:30px;border-radius:999px;background:#eef4f1;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;"><div style="width:13px;height:13px;border:2px solid #2f7d62;border-radius:2px;"></div></div>
                 <div onClick="{{ t.onRemove }}" style="width:26px;height:26px;border-radius:999px;background:#f7efe8;display:flex;align-items:center;justify-content:center;color:#a89e94;font-size:16px;cursor:pointer;flex:none;">×</div>
               </div>
             </sc-for>
@@ -476,7 +597,14 @@ if ('serviceWorker' in navigator) {
           <div style="margin:12px 18px 0;background:#fff;border:1px dashed #d8cabb;border-radius:16px;padding:14px;">
             <div style="font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#a89e94;margin-bottom:10px;">Nouvelle tâche</div>
             <input value="{{ newTaskName }}" onInput="{{ onNameInput }}" placeholder="Nom de la tâche" style="width:100%;box-sizing:border-box;border:1px solid #ece2d8;border-radius:12px;padding:11px 13px;font-size:14px;font-family:'Hanken Grotesk',sans-serif;color:#2b2420;outline:none;background:#fbf7f4;" />
-            <div style="display:flex;gap:9px;margin-top:9px;">
+            <div style="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#b3a596;margin:12px 2px 7px;">Lieu (optionnel)</div>
+            <div style="display:flex;flex-wrap:wrap;gap:7px;">
+              <div onClick="{{ onZoneNone }}" style="{{ zoneNoneStyle }}">Aucun</div>
+              <sc-for list="{{ taskZoneOptions }}" as="z" hint-placeholder-count="4">
+                <div onClick="{{ z.onPick }}" style="{{ z.chipStyle }}">{{ z.name }}</div>
+              </sc-for>
+            </div>
+            <div style="display:flex;gap:9px;margin-top:12px;">
               <input value="{{ newTaskPts }}" onInput="{{ onPtsInput }}" inputmode="numeric" placeholder="Points" style="width:90px;box-sizing:border-box;border:1px solid #ece2d8;border-radius:12px;padding:11px 13px;font-size:14px;font-family:'Hanken Grotesk',sans-serif;color:#2b2420;outline:none;background:#fbf7f4;" />
               <div onClick="{{ onAddTask }}" style="{{ addTaskStyle }}">Ajouter</div>
             </div>
@@ -485,7 +613,7 @@ if ('serviceWorker' in navigator) {
           <!-- Export -->
           <div style="margin:24px 18px 0;">
             <div onClick="{{ onExport }}" style="background:#2b2420;color:#fff;border-radius:16px;padding:15px;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;"><div style="width:15px;height:18px;border:2px solid #f0a93f;border-radius:3px;position:relative;"><div style="position:absolute;top:4px;left:2px;right:2px;height:2px;background:#f0a93f;"></div><div style="position:absolute;top:8px;left:2px;right:2px;height:2px;background:#f0a93f;"></div></div><span style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:15px;">Exporter le rapport hebdo (PDF)</span></div>
-            <div onClick="{{ onReset }}" style="text-align:center;margin-top:12px;font-size:12.5px;color:#a89e94;cursor:pointer;">Réinitialiser les données de démo</div>
+            <div onClick="{{ onReset }}" style="text-align:center;margin-top:12px;font-size:12.5px;color:#a89e94;cursor:pointer;">Se déconnecter de cet appareil</div>
           </div>
         </div>
       </sc-if>
@@ -538,65 +666,29 @@ class Component extends DCLogic {
       view: start,
       managerUnlocked: start === 'admin',
       pin: '', pinMsg: '', pinError: false,
-      points: 215, xp: 625, streak: 5,
-      selectedZone: 'Cuisine — Étage 2', selectedTaskId: null, proofPhoto: null,
+      // Identité de l'appareil
+      me: null,              // doc user connecté {id,name,code,color,initials,role,xp,points}
+      loginCode: '',         // saisie du code de connexion
+      loginMsg: '', loginError: false,
+      ccReady: false, ccError: null,
+      // Données live (remplies par Firestore)
+      points: 0, xp: 0, streak: 0,
+      selectedZone: '', selectedTaskId: null, proofPhoto: null,
       earnedPts: 0, lastTask: '', lastZone: '',
-      myPhoto: null, newTaskName: '', newTaskPts: '',
-      siteIndex: 0, toast: null, newZoneName: '', declares: [{ taskId: 'lv-vider', ts: Date.now() - 20 * 60000 }],
-      zones: [
-        { id: 'z1', name: 'Cuisine — Étage 2' },
-        { id: 'z2', name: 'Salle de pause' },
-        { id: 'z3', name: 'Cuisine — RDC' },
-        { id: 'z4', name: 'Sanitaires' }
-      ],
-      history: [
-        { id: 'h1', task: 'Lave-vaisselle vidé', pts: 10, meta: 'Cuisine — Étage 2 · Hier 17:10', status: 'ok', photo: false },
-        { id: 'h2', task: 'Micro-ondes lavé', pts: 12, meta: 'Salle de pause · Hier 09:05', status: 'ok', photo: true },
-        { id: 'h3', task: 'Cafetières remplies', pts: 8, meta: 'Cuisine — RDC · Lun. 08:40', status: 'ok', photo: false },
-        { id: 'h4', task: 'Capsules vidées', pts: 5, meta: 'Salle de pause · Lun. 08:38', status: 'ok', photo: false },
-        { id: 'h5', task: 'Sel rechargé', pts: 6, meta: 'Cuisine — Étage 2 · Ven. 16:20', status: 'ok', photo: false }
-      ],
-      tasks: [
-        { id: 'lv-vider', name: 'Vider le lave-vaisselle', pts: 10 },
-        { id: 'micro', name: 'Laver le micro-ondes', pts: 12 },
-        { id: 'cafe', name: 'Remplir les cafetières', pts: 8 },
-        { id: 'lv-lancer', name: 'Lancer le lave-vaisselle', pts: 5 },
-        { id: 'capsules', name: 'Vider les capsules', pts: 5 },
-        { id: 'sel', name: 'Remettre du sel', pts: 6 },
-        { id: 'rincage', name: 'Liquide de rinçage', pts: 6 }
-      ],
-      members: [
-        { name: 'Sofia', initials: 'SF', xp: 920, color: '#f0a93f', role: 'Employée', photo: null },
-        { name: 'Karim', initials: 'KA', xp: 780, color: '#7fb5a0', role: 'Employé', photo: null },
-        { name: 'Léa', initials: 'LE', xp: 540, color: '#b89cd0', role: 'Employée', photo: null },
-        { name: 'Manon', initials: 'MN', xp: 410, color: '#e0a4a4', role: 'Employée', photo: null }
-      ],
-      rewards: [
-        { id: 'the', name: 'Thé ou chocolat', desc: 'Boisson chaude au choix', cost: 80, color: '#7fb5a0' },
-        { id: 'cafe', name: 'Café offert', desc: 'À la machine partenaire', cost: 100, color: '#e0552b' },
-        { id: 'parking', name: 'Place de parking', desc: 'Réservée 1 semaine', cost: 250, color: '#b89cd0' },
-        { id: 'rtt', name: '1h de récupération', desc: 'À poser quand tu veux', cost: 300, color: '#f0a93f' },
-        { id: 'dej', name: 'Déjeuner offert', desc: "Au resto d'à côté", cost: 350, color: '#e0a4a4' },
-        { id: 'bon', name: 'Bon cadeau 15€', desc: 'Multi-enseignes', cost: 400, color: '#2b2420' }
-      ],
-      redeemed: [
-        { name: 'Café offert', when: 'il y a 3 j', cost: 100 },
-        { name: 'Thé ou chocolat', when: 'le 12 juin', cost: 80 }
-      ],
-      pending: [
-        { id: 'p1', who: 'Karim', initials: 'KA', color: '#7fb5a0', task: 'Laver le micro-ondes', pts: 12, when: 'il y a 5 min', photo: true, isMe: false },
-        { id: 'p2', who: 'Sofia', initials: 'SF', color: '#f0a93f', task: 'Vider le lave-vaisselle', pts: 10, when: 'il y a 12 min', photo: false, isMe: false },
-        { id: 'p3', who: 'Léa', initials: 'LE', color: '#b89cd0', task: 'Remplir les cafetières', pts: 8, when: 'il y a 1 h', photo: false, isMe: false }
-      ],
-      notifications: [
-        { id: 1, text: "C'est ton tour pour le lave-vaisselle cette semaine", time: 'il y a 10 min', read: false, kind: 'rotation' },
-        { id: 2, text: 'Sofia a validé ta tâche · +10 pts', time: 'il y a 1 h', read: false, kind: 'valid' },
-        { id: 3, text: 'Nouvelle récompense : Déjeuner offert disponible', time: 'Hier', read: false, kind: 'reward' },
-        { id: 4, text: "Le sel n'a pas été rechargé depuis 6 jours", time: 'Hier', read: true, kind: 'alert' }
-      ]
+      myPhoto: null, newTaskName: '', newTaskPts: '', newTaskZoneId: '',
+      siteIndex: 0, toast: null, newZoneName: '',
+      newUserName: '', newUserCode: '', newUserRole: 'Employé',
+      zones: [],
+      history: [],
+      tasks: [],
+      members: [],
+      users: [],            // tous les users (pour le classement)
+      rewards: [],
+      redeemed: [],
+      declarations: [],     // toutes les déclarations (live)
+      pending: [],          // dérivé : déclarations status=pending
+      notifications: []
     };
-    const _saved = this.loadSaved();
-    if (_saved) Object.assign(this.state, _saved);
     this.COOLDOWN = 7200000;
     this.MAX_DAY = 12;
     this.PIN = '1234';
@@ -622,15 +714,54 @@ class Component extends DCLogic {
     });
   }
 
-  componentDidUpdate() { this.saveState(); }
-  loadSaved() { try { const r = localStorage.getItem('boost_v1'); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
-  saveState() { try { const s = this.state; const keys = ['points','xp','streak','history','tasks','members','myPhoto','pending','redeemed','notifications','declares','siteIndex','zones']; const o = {}; keys.forEach(k => o[k] = s[k]); localStorage.setItem('boost_v1', JSON.stringify(o)); } catch (e) {} }
-  resetData() { try { localStorage.removeItem('boost_v1'); } catch (e) {} location.reload(); }
-  lastByTask() { const m = {}; (this.state.declares || []).forEach(d => { if (!m[d.taskId] || d.ts > m[d.taskId]) m[d.taskId] = d.ts; }); return m; }
-  todayCount() { const n = new Date(); return (this.state.declares || []).filter(d => { const x = new Date(d.ts); return x.getDate() === n.getDate() && x.getMonth() === n.getMonth() && x.getFullYear() === n.getFullYear(); }).length; }
+  componentDidMount() {
+    var self = this;
+    if (typeof window.CC === 'undefined') { this.setState({ ccError: 'Firebase non chargé (vérifie ta connexion).' }); return; }
+    if (window.CC._err) { this.setState({ ccError: 'Firebase : ' + (window.CC._err.message || 'erreur init') }); }
+    this._unsub = [];
+    window.CC.whenReady(function () {
+      self.setState({ ccReady: true });
+      // Abonnements temps réel
+      self._unsub.push(window.CC.subscribe('users', function (users) {
+        self.setState({ users: users, members: users });
+        // resynchroniser "me" si ses points/xp ont changé
+        if (self.state.me) {
+          var fresh = users.find(function (u) { return u.id === self.state.me.id; });
+          if (fresh) self.setState({ me: fresh, points: fresh.points || 0, xp: fresh.xp || 0 });
+        }
+      }));
+      self._unsub.push(window.CC.subscribe('zones', function (zones) { self.setState({ zones: zones }); }, 'name'));
+      self._unsub.push(window.CC.subscribe('tasks', function (tasks) { self.setState({ tasks: tasks }); }));
+      self._unsub.push(window.CC.subscribe('rewards', function (rewards) { self.setState({ rewards: rewards }); }, 'cost'));
+      self._unsub.push(window.CC.subscribe('declarations', function (decls) {
+        self.setState({ declarations: decls });
+      }, 'ts', 'desc'));
+    });
+  }
+  componentWillUnmount() { (this._unsub || []).forEach(function (u) { try { u(); } catch (e) {} }); }
+  resetData() { this.setState({ me: null, view: 'login', points: 0, xp: 0 }); }
+  lastByTask() { const m = {}; (this.myDeclares()).forEach(d => { if (!m[d.taskId] || d.ts > m[d.taskId]) m[d.taskId] = d.ts; }); return m; }
+  myDeclares() { const me = this.state.me; if (!me) return []; return (this.state.declarations || []).filter(d => d.userId === me.id); }
+  todayCount() { const n = new Date(); return (this.myDeclares()).filter(d => { const x = new Date(d.ts); return x.getDate() === n.getDate() && x.getMonth() === n.getMonth() && x.getFullYear() === n.getFullYear(); }).length; }
   remainMs(id) { const l = this.lastByTask()[id]; if (!l) return 0; const r = this.COOLDOWN - (Date.now() - l); return r > 0 ? r : 0; }
   fmtRemain(ms) { const m = Math.ceil(ms / 60000); if (m >= 60) { const h = Math.floor(m / 60), mm = m % 60; return mm ? h + ' h ' + mm : h + ' h'; } return m + ' min'; }
   isBlocked(id) { return this.remainMs(id) > 0; }
+  declaredToday(id) { const n = new Date(); const me = this.state.me; if (!me) return false; return (this.state.declarations || []).some(d => { if (d.taskId !== id || d.userId !== me.id) return false; const x = new Date(d.ts); return x.getDate() === n.getDate() && x.getMonth() === n.getMonth() && x.getFullYear() === n.getFullYear(); }); }
+
+  // ---- Connexion par code 4 chiffres ----
+  loginKey(d) {
+    if (this.state.loginCode.length >= 4) return;
+    const code = this.state.loginCode + d;
+    if (code.length < 4) { this.setState({ loginCode: code, loginMsg: '', loginError: false }); return; }
+    this.setState({ loginCode: code });
+    const self = this;
+    window.CC.findUserByCode(code).then(function (user) {
+      if (user) { self.setState({ me: user, points: user.points || 0, xp: user.xp || 0, view: 'home', loginCode: '', loginMsg: '', loginError: false }); }
+      else { self.setState({ loginCode: '', loginMsg: 'Code inconnu', loginError: true }); }
+    }).catch(function (e) { self.setState({ loginCode: '', loginMsg: 'Erreur réseau', loginError: true }); });
+  }
+  loginDel() { this.setState(s => ({ loginCode: s.loginCode.slice(0, -1), loginMsg: '', loginError: false })); }
+  logout() { this.setState({ me: null, view: 'login', loginCode: '', points: 0, xp: 0 }); }
 
   go(v) { this.setState({ view: v }); }
   identify() { this.setState({ view: 'home' }); }
@@ -643,38 +774,56 @@ class Component extends DCLogic {
 
   validate() {
     const t = this.state.tasks.find(x => x.id === this.state.selectedTaskId);
-    if (!t) return;
+    const me = this.state.me;
+    if (!t || !me) return;
     if (this.isBlocked(t.id) || this.todayCount() >= this.MAX_DAY) { this.toast('Action bloquée (anti-abus)'); return; }
-    const meta = `${this.state.selectedZone} · ${this.stamp()}`;
-    const hid = 'h' + Date.now();
-    this.setState(s => ({
-      points: s.points + t.pts, xp: s.xp + t.pts, earnedPts: t.pts, lastTask: t.name, lastZone: s.selectedZone,
-      declares: [{ taskId: t.id, ts: Date.now() }, ...(s.declares || [])],
-      history: [{ id: hid, task: t.name, pts: t.pts, meta, status: 'pending', photo: !!s.proofPhoto }, ...s.history],
-      pending: [{ id: 'pm' + Date.now(), who: 'Toi', initials: 'TR', color: '#e0552b', task: t.name, pts: t.pts, when: "à l'instant", photo: !!s.proofPhoto, isMe: true, histId: hid }, ...s.pending],
-      selectedTaskId: null, proofPhoto: null, view: 'success'
-    }));
+    const self = this;
+    // Anti-rejeu serveur : vérifie qu'aucune déclaration de ce user+task aujourd'hui
+    window.CC.declaredToday(me.id, t.id).then(function (already) {
+      if (already) { self.toast('Déjà déclarée aujourd\u2019hui'); return; }
+      const zone = self.state.zones.find(z => z.name === self.state.selectedZone);
+      const decl = {
+        userId: me.id, userName: me.name, userColor: me.color || '#e0552b', userInitials: me.initials || '',
+        taskId: t.id, taskName: t.name, pts: t.pts,
+        zoneId: zone ? zone.id : null, zoneName: self.state.selectedZone || '',
+        ts: Date.now(), status: 'pending',
+        photo: self.state.proofPhoto || null
+      };
+      window.CC.add('declarations', decl).then(function () {
+        self.setState({ earnedPts: t.pts, lastTask: t.name, lastZone: self.state.selectedZone, selectedTaskId: null, proofPhoto: null, view: 'success' });
+      }).catch(function (e) { self.toast('Erreur d\u2019envoi : ' + (e.message || '')); });
+    }).catch(function (e) { self.toast('Erreur réseau'); });
   }
 
   validatePending(id, accept) {
-    const p = this.state.pending.find(x => x.id === id);
+    const p = (this.state.declarations || []).find(x => x.id === id);
     if (!p) return;
-    this.setState(s => {
-      let st = { pending: s.pending.filter(x => x.id !== id) };
-      if (p.isMe) {
-        if (accept) st.history = s.history.map(h => h.id === p.histId ? Object.assign({}, h, { status: 'ok' }) : h);
-        else { st.points = s.points - p.pts; st.xp = s.xp - p.pts; st.history = s.history.map(h => h.id === p.histId ? Object.assign({}, h, { status: 'refused' }) : h); }
+    const self = this;
+    const newStatus = accept ? 'ok' : 'refused';
+    window.CC.update('declarations', id, { status: newStatus }).then(function () {
+      // Si accepté, créditer les points de l'auteur
+      if (accept) {
+        const author = (self.state.users || []).find(u => u.id === p.userId);
+        if (author) {
+          window.CC.update('users', author.id, {
+            points: (author.points || 0) + p.pts,
+            xp: (author.xp || 0) + p.pts
+          }).catch(function (e) { console.error('crédit points', e); });
+        }
       }
-      return st;
-    });
-    this.toast(accept ? `Tâche validée · ${p.who}` : `Tâche refusée · ${p.who}`);
+      self.toast(accept ? 'Tâche validée · ' + (p.userName || '') : 'Tâche refusée · ' + (p.userName || ''));
+    }).catch(function (e) { self.toast('Erreur : ' + (e.message || '')); });
   }
 
   redeem(id) {
     const r = this.state.rewards.find(x => x.id === id);
-    if (!r || this.state.points < r.cost) return;
-    this.setState(s => ({ points: s.points - r.cost, redeemed: [{ name: r.name, when: "à l'instant", cost: r.cost }, ...s.redeemed] }));
-    this.toast(`Échangé : ${r.name}`);
+    const me = this.state.me;
+    if (!r || !me || (me.points || 0) < r.cost) return;
+    const self = this;
+    window.CC.update('users', me.id, { points: (me.points || 0) - r.cost }).then(function () {
+      return window.CC.add('redemptions', { userId: me.id, userName: me.name, rewardId: r.id, rewardName: r.name, cost: r.cost, ts: Date.now() });
+    }).then(function () { self.toast('Échangé : ' + r.name); })
+      .catch(function (e) { self.toast('Erreur : ' + (e.message || '')); });
   }
 
   openManager() { if (this.state.managerUnlocked) this.setState({ view: 'admin' }); else this.setState({ view: 'managerlock', pin: '', pinMsg: '', pinError: false }); }
@@ -687,27 +836,66 @@ class Component extends DCLogic {
   }
   delKey() { this.setState(s => ({ pin: s.pin.slice(0, -1), pinMsg: '', pinError: false })); }
 
-  handlePhoto(name) { return (e) => this.readFileTo(e, (d) => { if (name === 'Toi') this.setState({ myPhoto: d }); else this.setState(s => ({ members: s.members.map(m => m.name === name ? Object.assign({}, m, { photo: d }) : m) })); }); }
-  addTask() { const name = (this.state.newTaskName || '').trim(); const pts = parseInt(this.state.newTaskPts, 10); if (!name || !pts || pts < 1) return; this.setState(s => ({ tasks: s.tasks.concat([{ id: 't' + Date.now(), name, pts }]), newTaskName: '', newTaskPts: '' })); this.toast('Tâche ajoutée'); }
-  removeTask(id) { this.setState(s => ({ tasks: s.tasks.filter(t => t.id !== id) })); }
+  handlePhoto(name) { return (e) => this.readFileTo(e, (d) => { if (name === 'Toi' && this.state.me) { const self = this; window.CC.update('users', this.state.me.id, { photo: d }).catch(function (e) {}); this.setState({ myPhoto: d }); } }); }
+  addTask() { const name = (this.state.newTaskName || '').trim(); const pts = parseInt(this.state.newTaskPts, 10); if (!name || !pts || pts < 1) return; const zoneId = this.state.newTaskZoneId || null; const self = this; window.CC.add('tasks', { name, pts, zoneId }).then(function () { self.setState({ newTaskName: '', newTaskPts: '', newTaskZoneId: '' }); self.toast('Tâche ajoutée'); }).catch(function (e) { self.toast('Erreur : ' + (e.message || '')); }); }
+  removeTask(id) { const self = this; window.CC.remove('tasks', id).catch(function (e) { self.toast('Erreur suppression'); }); }
+  // ---- Gestion des employés (manager) ----
+  addUser() {
+    const name = (this.state.newUserName || '').trim();
+    const code = (this.state.newUserCode || '').trim();
+    const role = this.state.newUserRole || 'Employé';
+    if (!name || code.length !== 4) { this.toast('Nom + code à 4 chiffres requis'); return; }
+    const self = this;
+    // empêcher les codes en double
+    window.CC.findUserByCode(code).then(function (existing) {
+      if (existing) { self.toast('Ce code est déjà utilisé'); return; }
+      const palette = ['#e0552b', '#f0a93f', '#7fb5a0', '#b89cd0', '#e0a4a4', '#6fa8c7'];
+      const color = palette[(self.state.users || []).length % palette.length];
+      const initials = name.trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+      window.CC.add('users', { name, code, role, color, initials, xp: 0, points: 0, photo: null }).then(function () {
+        self.setState({ newUserName: '', newUserCode: '', newUserRole: 'Employé' }); self.toast('Employé ajouté');
+      }).catch(function (e) { self.toast('Erreur : ' + (e.message || '')); });
+    });
+  }
+  removeUser(id) { const self = this; window.CC.remove('users', id).catch(function (e) { self.toast('Erreur suppression'); }); }
   markAllRead() { this.setState(s => ({ notifications: s.notifications.map(n => Object.assign({}, n, { read: true })) })); }
   readNotif(id) { this.setState(s => ({ notifications: s.notifications.map(n => n.id === id ? Object.assign({}, n, { read: true }) : n) })); }
   cycleSite(dir) { this.setState(s => { const n = s.zones.length || 1; return { siteIndex: (s.siteIndex + dir + n) % n }; }); }
   // ---- Scan QR réel (caméra + jsQR) ----
   qrPayload(z) { return JSON.stringify({ app: 'boost', t: 'zone', id: z.id }); }
-  resolveScannedZone(text) {
-    const zs = this.state.zones;
+  taskQrPayload(task) { const p = { app: 'boost', t: 'task', id: task.id }; if (task.zoneId) p.z = task.zoneId; return JSON.stringify(p); }
+  // Retourne {kind:'task', task, zone?} ou {kind:'zone', zone} ou null
+  resolveScan(text) {
+    const zs = this.state.zones, ts = this.state.tasks;
     let data = null;
     try { data = JSON.parse(text); } catch (e) {}
-    if (data && data.app === 'boost' && data.id) {
-      const byId = zs.find(z => z.id === data.id);
-      if (byId) return byId;
-      const byName = zs.find(z => z.name === data.name);
-      if (byName) return byName;
-      return null;
+    if (data && data.app === 'boost') {
+      if (data.t === 'task' && data.id) {
+        const task = ts.find(x => x.id === data.id);
+        if (!task) return null;
+        const zid = data.z || task.zoneId;
+        const zone = zid ? zs.find(z => z.id === zid) : null;
+        return { kind: 'task', task, zone };
+      }
+      if (data.id) {
+        const z = zs.find(x => x.id === data.id) || zs.find(x => x.name === data.name);
+        return z ? { kind: 'zone', zone: z } : null;
+      }
     }
-    // tolérance : QR contenant juste le nom de la salle
-    return zs.find(z => z.name.trim().toLowerCase() === String(text).trim().toLowerCase()) || null;
+    // tolérance : QR texte = nom de salle
+    const z = zs.find(x => x.name.trim().toLowerCase() === String(text).trim().toLowerCase());
+    return z ? { kind: 'zone', zone: z } : null;
+  }
+  applyScan(r) {
+    if (r.kind === 'task') {
+      const patch = { selectedTaskId: r.task.id, view: 'declare' };
+      if (r.zone) patch.selectedZone = r.zone.name;
+      this.setState(patch);
+      this.toast('Tâche : ' + r.task.name + (r.zone ? ' · ' + r.zone.name : ''));
+    } else {
+      this.setState({ selectedZone: r.zone.name });
+      this.toast('Salle détectée : ' + r.zone.name);
+    }
   }
   scanZone() {
     if (typeof jsQR === 'undefined') { this.toast('Lecteur QR indisponible'); return; }
@@ -752,9 +940,9 @@ class Component extends DCLogic {
         if (img) {
           const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
           if (code && code.data) {
-            const zone = this.resolveScannedZone(code.data);
-            if (zone) { cleanup(); this.setState({ selectedZone: zone.name }); this.toast('Salle détectée : ' + zone.name); return; }
-            hint.textContent = 'QR non reconnu — ce n\u2019est pas une salle Boost';
+            const r = this.resolveScan(code.data);
+            if (r) { cleanup(); this.applyScan(r); return; }
+            hint.textContent = 'QR non reconnu — ce n\u2019est pas un QR Clean Check';
           }
         }
       }
@@ -770,8 +958,8 @@ class Component extends DCLogic {
         this.toast(msg);
       });
   }
-  addZone() { const name = (this.state.newZoneName || '').trim(); if (!name) return; this.setState(s => ({ zones: s.zones.concat([{ id: 'z' + Date.now(), name }]), newZoneName: '' })); this.toast('Salle ajoutée'); }
-  removeZone(id) { this.setState(s => { const zones = s.zones.filter(z => z.id !== id); return { zones, siteIndex: Math.min(s.siteIndex, Math.max(0, zones.length - 1)) }; }); }
+  addZone() { const name = (this.state.newZoneName || '').trim(); if (!name) return; const self = this; window.CC.add('zones', { name }).then(function () { self.setState({ newZoneName: '' }); self.toast('Salle ajoutée'); }).catch(function (e) { self.toast('Erreur : ' + (e.message || '')); }); }
+  removeZone(id) { const self = this; window.CC.remove('zones', id).catch(function (e) { self.toast('Erreur suppression'); }); }
   printZone(name) {
     const zone = this.state.zones.find(z => z.name === name);
     if (!zone) { this.toast('Salle introuvable'); return; }
@@ -800,7 +988,7 @@ class Component extends DCLogic {
       '@media print{.noprint{display:none;}.card{border:none;}}' +
       'button{margin-top:24px;padding:12px 26px;border:none;border-radius:999px;background:#e0552b;color:#fff;' +
       'font-size:15px;font-weight:700;cursor:pointer;}</style></head><body><div class="card">' +
-      '<div class="brand">Boost</div>' +
+      '<div class="brand">Clean Check</div>' +
       '<div class="title">' + esc(zone.name) + '</div>' +
       '<div class="sub">Scanne ce QR pour confirmer ta présence</div>' +
       '<img src="' + dataUrl + '" alt="QR ' + esc(zone.name) + '">' +
@@ -814,11 +1002,53 @@ class Component extends DCLogic {
     w.document.open(); w.document.write(html); w.document.close();
     this.toast('QR « ' + zone.name + ' » prêt à imprimer ✓');
   }
-  exportReport() { this.toast('Rapport hebdo généré (PDF) ✓'); }
+  printTaskQR(taskId) {
+    const task = this.state.tasks.find(t => t.id === taskId);
+    if (!task) { this.toast('Tâche introuvable'); return; }
+    if (typeof qrcode === 'undefined') { this.toast('Générateur QR indisponible'); return; }
+    const zone = task.zoneId ? this.state.zones.find(z => z.id === task.zoneId) : null;
+    let dataUrl = '';
+    try {
+      const qr = qrcode(0, 'M'); qr.addData(this.taskQrPayload(task)); qr.make();
+      dataUrl = qr.createDataURL(10, 16);
+    } catch (e) { this.toast('Erreur de génération du QR'); return; }
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const lieu = zone ? esc(zone.name) : 'Lieu non défini';
+    const html =
+      '<!doctype html><html><head><meta charset="utf-8"><title>QR — ' + esc(task.name) + '</title>' +
+      '<style>@page{margin:18mm;}*{box-sizing:border-box;}' +
+      'body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#2b2420;' +
+      'display:flex;align-items:center;justify-content:center;min-height:100vh;}' +
+      '.card{text-align:center;border:2px solid #f0e3d8;border-radius:24px;padding:40px 48px;max-width:520px;}' +
+      '.brand{font-size:13px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#e0552b;}' +
+      '.title{font-size:28px;font-weight:800;margin:6px 0 2px;}' +
+      '.lieu{font-size:15px;color:#5b5149;margin-bottom:2px;}' +
+      '.pts{display:inline-block;font-size:13px;font-weight:700;color:#c2531f;background:#fdf0e3;border-radius:999px;padding:3px 12px;margin-bottom:18px;}' +
+      'img{width:300px;height:300px;image-rendering:pixelated;display:block;margin:0 auto;}' +
+      '.sub{font-size:14px;color:#8a7f76;margin-top:18px;}' +
+      '.foot{font-size:12px;color:#a89e94;margin-top:8px;}' +
+      '@media print{.noprint{display:none;}.card{border:none;}}' +
+      'button{margin-top:24px;padding:12px 26px;border:none;border-radius:999px;background:#e0552b;color:#fff;font-size:15px;font-weight:700;cursor:pointer;}</style></head><body><div class="card">' +
+      '<div class="brand">Clean Check · Tâche</div>' +
+      '<div class="title">' + esc(task.name) + '</div>' +
+      '<div class="lieu">' + lieu + '</div>' +
+      '<div class="pts">' + task.pts + ' pts</div>' +
+      '<img src="' + dataUrl + '" alt="QR ' + esc(task.name) + '">' +
+      '<div class="sub">Scanne ce QR sur place pour déclarer la tâche</div>' +
+      '<div class="foot">Validation par le manager · 1×/jour</div>' +
+      '<button class="noprint" onclick="window.print()">Imprimer</button>' +
+      '</div><script>window.addEventListener("load",function(){setTimeout(function(){window.print();},350);});<\/script>' +
+      '</body></html>';
+    const w = window.open('', '_blank');
+    if (!w) { this.toast('Autorise les pop-ups pour imprimer'); return; }
+    w.document.open(); w.document.write(html); w.document.close();
+    this.toast('QR « ' + task.name + ' » prêt à imprimer ✓');
+  }
 
   now() { return new Date(); }
   pad(n) { return n < 10 ? '0' + n : '' + n; }
   stamp() { const d = this.now(); return `Aujourd'hui · ${this.pad(d.getHours())}:${this.pad(d.getMinutes())}`; }
+  ago(ts) { if (!ts) return ''; const diff = Date.now() - ts; const m = Math.floor(diff / 60000); if (m < 1) return "à l'instant"; if (m < 60) return 'il y a ' + m + ' min'; const h = Math.floor(m / 60); if (h < 24) return 'il y a ' + h + ' h'; const j = Math.floor(h / 24); return j === 1 ? 'hier' : 'il y a ' + j + ' j'; }
   avatar(m, size, fs, ring) {
     let s = `width:${size}px;height:${size}px;border-radius:999px;display:flex;align-items:center;justify-content:center;flex:none;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:${fs}px;overflow:hidden;`;
     if (m.photo) s += `background-image:url(${m.photo});background-size:cover;background-position:center;`;
@@ -842,12 +1072,15 @@ class Component extends DCLogic {
 
   renderVals() {
     const s = this.state, d = this.now(), hr = d.getHours();
+    // Garde : si pas connecté, seules les vues login/manager sont permises
+    if (!s.me && !['nfc', 'managerlock', 'admin'].includes(s.view)) { s.view = 'nfc'; }
     const goal = (this.props && this.props.rewardGoal) || 300;
     const showMgr = this.props && this.props.showManagerTab !== undefined ? this.props.showManagerTab : true;
 
-    const me = { name: 'Toi', initials: 'TR', xp: s.xp, color: '#e0552b', photo: s.myPhoto, isMe: true, role: 'Toi · Employé' };
-    const all = s.members.map(o => Object.assign({ isMe: false }, o)).concat([me]).sort((a, b) => b.xp - a.xp);
-    const rank = all.findIndex(p => p.isMe) + 1;
+    const meDoc = s.me || { name: '—', initials: '', xp: 0, color: '#e0552b', points: 0 };
+    const me = { id: meDoc.id, name: meDoc.name, initials: meDoc.initials || '', xp: meDoc.xp || 0, color: meDoc.color || '#e0552b', photo: meDoc.photo || s.myPhoto, isMe: true, role: (meDoc.role || 'Employé') };
+    const all = (s.users || []).map(o => Object.assign({}, o, { isMe: s.me && o.id === s.me.id })).sort((a, b) => (b.xp || 0) - (a.xp || 0));
+    const rank = Math.max(1, all.findIndex(p => p.isMe) + 1);
     const lvl = this.levelInfo(s.xp);
 
     const ranking = all.map((p, i) => { const a = this.avatar(p, 30, 11); return { pos: i + 1, name: p.name, pts: p.xp, avatarStyle: a.style, avatarLabel: a.label, posColor: p.isMe ? '#e0552b' : '#a89e94', ptsColor: p.isMe ? '#e0552b' : '#2b2420', nameWeight: p.isMe ? 700 : 500, rowStyle: `display:flex;align-items:center;gap:11px;padding:11px 14px;border-radius:16px;${p.isMe ? 'background:#fff;border:1.5px solid #e0552b;box-shadow:0 10px 22px -14px rgba(224,85,43,.5);' : 'background:#fff;border:1px solid #f0e3d8;'}` }; });
@@ -871,18 +1104,20 @@ class Component extends DCLogic {
     const canAddZone = (s.newZoneName || '').trim().length > 0;
     const st = s.tasks.find(x => x.id === s.selectedTaskId), canValidate = !!st && !this.isBlocked(st.id) && !_dayBlocked;
 
-    const team = all.slice().sort((a, b) => b.xp - a.xp).map(p => { const a = this.avatar(p, 46, 15); return { name: p.name, pts: p.xp, role: p.role || 'Employé(e)', avatarStyle: a.style, avatarLabel: a.label, onPhoto: this.handlePhoto(p.name) }; });
-    const adminTasks = s.tasks.map(t => ({ name: t.name, pts: t.pts, onRemove: () => this.removeTask(t.id) }));
+    const team = all.slice().sort((a, b) => (b.xp || 0) - (a.xp || 0)).map(p => { const a = this.avatar(p, 46, 15); return { name: p.name, pts: p.xp || 0, code: p.code || '', role: p.role || 'Employé(e)', avatarStyle: a.style, avatarLabel: a.label, onPhoto: this.handlePhoto(p.name), onRemove: () => this.removeUser(p.id) }; });
+    const adminTasks = s.tasks.map(t => { const z = t.zoneId ? s.zones.find(x => x.id === t.zoneId) : null; return { name: t.name, pts: t.pts, zoneLabel: z ? z.name : 'Lieu non défini', zoneColor: z ? '#2f7d62' : '#c0a24f', onPrint: () => this.printTaskQR(t.id), onRemove: () => this.removeTask(t.id) }; });
     const canAdd = (s.newTaskName || '').trim() && parseInt(s.newTaskPts, 10) > 0;
 
-    const pending = s.pending.map(p => { const a = this.avatar(p, 38, 13); return { task: p.task, who: p.who, when: p.when, pts: p.pts, photo: p.photo, avatarStyle: a.style, avatarLabel: a.label, onAccept: () => this.validatePending(p.id, true), onRefuse: () => this.validatePending(p.id, false) }; });
+    const pendingDecls = (s.declarations || []).filter(x => x.status === 'pending');
+    const pending = pendingDecls.map(p => { const av = { name: p.userName, initials: p.userInitials, color: p.userColor }; const a = this.avatar(av, 38, 13); return { task: p.taskName, who: p.userName, when: this.ago(p.ts), pts: p.pts, photo: !!p.photo, avatarStyle: a.style, avatarLabel: a.label, onAccept: () => this.validatePending(p.id, true), onRefuse: () => this.validatePending(p.id, false) }; });
 
     const rotation = this.rotationData.map(r => { const a = this.avatar(r, 26, 10); return { task: r.task, who: r.who, avatarStyle: a.style, avatarLabel: a.label, rowStyle: `display:flex;align-items:center;gap:10px;border-radius:14px;padding:11px 14px;${r.mine ? 'background:#fdf0e3;border:1px solid #f3dcc4;' : 'background:#fff;border:1px solid #f0e3d8;'}` }; });
     const rotMine = this.rotationData.find(r => r.mine);
 
     const badges = this.badgeData.map(b => ({ name: b.name, labelColor: b.earned ? '#2b2420' : '#b3a99f', circleStyle: `width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;${b.earned ? `background:${b.color};` : 'background:#efe6dc;border:1px dashed #d8cabb;'}`, gemStyle: `width:17px;height:17px;border-radius:4px;transform:rotate(45deg);${b.earned ? 'background:rgba(255,255,255,.92);' : 'background:#cfc3b6;'}` }));
 
-    const rewards = s.rewards.map(r => { const aff = s.points >= r.cost; return { name: r.name, desc: r.desc, cost: r.cost, iconStyle: `width:46px;height:46px;border-radius:14px;flex:none;display:flex;align-items:center;justify-content:center;background:${r.color};`, onRedeem: () => this.redeem(r.id), btnLabel: aff ? 'Échanger' : `Manque ${r.cost - s.points}`, btnStyle: aff ? 'background:#2b2420;color:#fff;border-radius:999px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;' : 'background:#f0e7de;color:#a89e94;border-radius:999px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:default;white-space:nowrap;' }; });
+    const myPoints = (s.me && s.me.points) || 0;
+    const rewards = s.rewards.map(r => { const aff = myPoints >= r.cost; return { name: r.name, desc: r.desc, cost: r.cost, iconStyle: `width:46px;height:46px;border-radius:14px;flex:none;display:flex;align-items:center;justify-content:center;background:${r.color};`, onRedeem: () => this.redeem(r.id), btnLabel: aff ? 'Échanger' : `Manque ${r.cost - myPoints}`, btnStyle: aff ? 'background:#2b2420;color:#fff;border-radius:999px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;' : 'background:#f0e7de;color:#a89e94;border-radius:999px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:default;white-space:nowrap;' }; });
 
     const notifColors = { rotation: '#f0a93f', valid: '#2f8a4f', reward: '#e0552b', alert: '#c2531f' };
     const notifications = s.notifications.map(n => ({ text: n.text, time: n.time, weight: n.read ? 500 : 700, onRead: () => this.readNotif(n.id), dotStyle: `width:9px;height:9px;border-radius:999px;flex:none;margin-top:5px;background:${n.read ? '#d8cabb' : (notifColors[n.kind] || '#e0552b')};`, rowStyle: `display:flex;gap:12px;align-items:flex-start;border-radius:16px;padding:13px 15px;cursor:pointer;${n.read ? 'background:#fff;border:1px solid #f0e3d8;' : 'background:#fffaf4;border:1px solid #f3dcc4;'}` }));
@@ -891,12 +1126,16 @@ class Component extends DCLogic {
     const pinDots = [0, 1, 2, 3].map(i => ({ style: `width:14px;height:14px;border-radius:999px;${i < s.pin.length ? 'background:#f0a93f;' : 'background:rgba(255,255,255,.16);'}` }));
     const keyBase = `width:72px;height:60px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-family:'Bricolage Grotesque',sans-serif;font-weight:600;font-size:24px;color:#fff;cursor:pointer;background:rgba(255,255,255,.08);`;
     const keypad = ['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(n => ({ label: n, onPress: () => this.pressKey(n), style: keyBase })).concat([{ label: '', onPress: () => {}, style: 'width:72px;height:60px;' }, { label: '0', onPress: () => this.pressKey('0'), style: keyBase }, { label: '⌫', onPress: () => this.delKey(), style: keyBase.replace('font-size:24px', 'font-size:20px') + 'background:transparent;' }]);
+    const loginDots = [0, 1, 2, 3].map(i => ({ style: `width:14px;height:14px;border-radius:999px;${i < s.loginCode.length ? 'background:#f0a93f;' : 'background:rgba(255,255,255,.16);'}` }));
+    const loginKeypad = ['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(n => ({ label: n, onPress: () => this.loginKey(n), style: keyBase })).concat([{ label: '', onPress: () => {}, style: 'width:72px;height:60px;' }, { label: '0', onPress: () => this.loginKey('0'), style: keyBase }, { label: '⌫', onPress: () => this.loginDel(), style: keyBase.replace('font-size:24px', 'font-size:20px') + 'background:transparent;' }]);
 
     const ha = this.avatar(me, 42, 14);
     const navColor = (v) => (s.view === v) ? '#e0552b' : '#b3a99f';
-    const homeRecent = s.history.slice(0, 3).map(h => { const t = this.histTag(h); return { task: h.task, meta: h.meta, tag: t.tag, tagStyle: t.tagStyle }; });
-    const history = s.history.map(h => { const t = this.histTag(h); return { task: h.task, meta: h.meta, tag: t.tag, tagStyle: t.tagStyle, dotStyle: t.dotStyle }; });
-    const okPts = s.history.filter(h => h.status === 'ok').reduce((a, h) => a + h.pts, 0);
+    const myDecls = this.myDeclares();
+    const histList = myDecls.map(dx => ({ task: dx.taskName, pts: dx.pts, meta: (dx.zoneName ? dx.zoneName + ' · ' : '') + this.ago(dx.ts), status: dx.status, photo: !!dx.photo }));
+    const homeRecent = histList.slice(0, 3).map(h => { const t = this.histTag(h); return { task: h.task, meta: h.meta, tag: t.tag, tagStyle: t.tagStyle }; });
+    const history = histList.map(h => { const t = this.histTag(h); return { task: h.task, meta: h.meta, tag: t.tag, tagStyle: t.tagStyle, dotStyle: t.dotStyle }; });
+    const okPts = histList.filter(h => h.status === 'ok').reduce((a, h) => a + h.pts, 0);
 
     return {
       isNfc: s.view === 'nfc', isHome: s.view === 'home', isDeclare: s.view === 'declare', isSuccess: s.view === 'success',
@@ -907,15 +1146,21 @@ class Component extends DCLogic {
 
       timeLabel: `${this.pad(d.getHours())}:${this.pad(d.getMinutes())}`,
       onIdentify: () => this.identify(),
+      meName: (s.me && s.me.name) || '',
+      loginDots, loginKeypad,
+      loginMsg: s.loginMsg, loginMsgColor: s.loginError ? '#f0a93f' : 'rgba(255,255,255,.45)',
+      loginRowStyle: `display:flex;gap:16px;margin-top:4px;${s.loginError ? 'animation:shake .4s;' : ''}`,
+      ccStatus: s.ccError ? s.ccError : (s.ccReady ? '' : 'Connexion à la base…'),
+      onLogout: () => this.logout(),
 
       greeting: hr < 12 ? 'Bonjour' : (hr < 18 ? 'Bon après-midi' : 'Bonsoir'),
-      points: s.points, streak: s.streak, rankLabel: rank + (rank === 1 ? 'er' : 'e'),
+      points: myPoints, streak: s.streak, rankLabel: rank + (rank === 1 ? 'er' : 'e'),
       homeAvatarStyle: ha.style, homeAvatarLabel: ha.label,
       unreadCount: unread, bellBadge: unread ? 'position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;border-radius:999px;background:#e0552b;color:#fff;font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid #fbf7f4;' : 'display:none;',
       levelNum: lvl.num, levelName: lvl.name, xpLabel: lvl.xpLabel, xpWidth: lvl.pct + '%',
       hasRotation: !!rotMine, rotationTask: rotMine ? rotMine.task : '',
-      progressWidth: Math.min(100, Math.round(s.points / goal * 100)) + '%',
-      nextRewardLabel: s.points >= goal ? 'Tu peux échanger 1h de récup !' : `Plus que ${goal - s.points} pts pour 1h de récup`,
+      progressWidth: Math.min(100, Math.round(myPoints / goal * 100)) + '%',
+      nextRewardLabel: myPoints >= goal ? 'Tu peux échanger 1h de récup !' : `Plus que ${goal - myPoints} pts pour 1h de récup`,
       badges, homeRecent,
 
       zoneChips, onScanZone: () => this.scanZone(), tasks, stampLabel: this.stamp(),
@@ -927,19 +1172,28 @@ class Component extends DCLogic {
       onValidate: () => this.validate(),
 
       earnedPts: s.earnedPts, lastTask: s.lastTask, lastZone: s.lastZone, confetti: this.confetti,
-      rewards, redeemed: s.redeemed, notifications, markAllRead: () => this.markAllRead(),
+      rewards, redeemed: (s.redeemed || []), notifications, markAllRead: () => this.markAllRead(),
 
       siteName: (s.zones[s.siteIndex] || s.zones[0] || { name: '—' }).name, sitePrev: () => this.cycleSite(-1), siteNext: () => this.cycleSite(1),
       podium, ranking,
-      history, weekCount: s.history.length, weekPoints: okPts,
+      history, weekCount: histList.length, weekPoints: okPts,
 
-      adminKpis: [{ label: 'Tâches cette semaine', value: '47' }, { label: 'Points distribués', value: '1 240' }, { label: 'Participation', value: '5/6' }],
-      pending, pendingCount: s.pending.length, pendingEmpty: s.pending.length === 0,
-      pendingCountStyle: s.pending.length ? 'font-size:12px;font-weight:700;color:#fff;background:#e0552b;border-radius:999px;padding:3px 9px;' : 'font-size:12px;color:#a89e94;',
+      adminKpis: [{ label: 'Employés', value: '' + (s.users || []).length }, { label: 'Tâches', value: '' + (s.tasks || []).length }, { label: 'En attente', value: '' + pendingDecls.length }],
+      pending, pendingCount: pendingDecls.length, pendingEmpty: pendingDecls.length === 0,
+      pendingCountStyle: pendingDecls.length ? 'font-size:12px;font-weight:700;color:#fff;background:#e0552b;border-radius:999px;padding:3px 9px;' : 'font-size:12px;color:#a89e94;',
       team, rotation, adminTasks, adminZones,
+      teamCountLabel: (s.users || []).length + ' employé' + ((s.users || []).length > 1 ? 's' : ''),
+      newUserName: s.newUserName, newUserCode: s.newUserCode,
+      onUserNameInput: (e) => this.setState({ newUserName: e.target.value }),
+      onUserCodeInput: (e) => this.setState({ newUserCode: (e.target.value || '').replace(/[^0-9]/g, '').slice(0, 4) }),
+      onAddUser: () => this.addUser(),
+      addUserStyle: `flex:none;border-radius:12px;padding:11px 18px;text-align:center;font-weight:700;font-size:14px;font-family:'Hanken Grotesk',sans-serif;${((s.newUserName || '').trim() && (s.newUserCode || '').length === 4) ? 'background:#2b2420;color:#fff;cursor:pointer;' : 'background:#ece2d8;color:#a89e94;cursor:default;'}`,
       newZoneName: s.newZoneName, onZoneInput: (e) => this.setState({ newZoneName: e.target.value }), onAddZone: () => this.addZone(),
       addZoneStyle: `flex:1;border-radius:12px;padding:11px;text-align:center;font-weight:700;font-size:14px;font-family:'Hanken Grotesk',sans-serif;${canAddZone ? 'background:#2b2420;color:#fff;cursor:pointer;' : 'background:#ece2d8;color:#a89e94;cursor:default;'}`,
-      newTaskName: s.newTaskName, newTaskPts: s.newTaskPts,
+      newTaskName: s.newTaskName, newTaskPts: s.newTaskPts, newTaskZoneId: s.newTaskZoneId || '',
+      taskZoneOptions: s.zones.map(z => { const sel = s.newTaskZoneId === z.id; return { id: z.id, name: z.name, onPick: () => this.setState({ newTaskZoneId: z.id }), chipStyle: `border-radius:999px;padding:7px 13px;font-size:12.5px;font-weight:600;font-family:'Hanken Grotesk',sans-serif;cursor:pointer;${sel ? 'background:#2b2420;color:#fff;' : 'background:#f4ece4;color:#6b6058;'}` }; }),
+      onZoneNone: () => this.setState({ newTaskZoneId: '' }),
+      zoneNoneStyle: `border-radius:999px;padding:7px 13px;font-size:12.5px;font-weight:600;font-family:'Hanken Grotesk',sans-serif;cursor:pointer;${!s.newTaskZoneId ? 'background:#2b2420;color:#fff;' : 'background:#f4ece4;color:#6b6058;'}`,
       onNameInput: (e) => this.setState({ newTaskName: e.target.value }),
       onPtsInput: (e) => this.setState({ newTaskPts: (e.target.value || '').replace(/[^0-9]/g, '') }),
       onAddTask: () => this.addTask(),

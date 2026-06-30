@@ -1,0 +1,103 @@
+rules_version = '2';
+
+// =====================================================================
+// Clean Check — règles de sécurité Firestore
+// =====================================================================
+// Modèle d'identité : authentification ANONYME Firebase + code 4 chiffres
+// stocké dans le doc utilisateur. Limite importante : le code n'est pas
+// vérifié côté serveur, donc ces règles NE PEUVENT PAS garantir qu'un
+// uid anonyme correspond réellement à la personne qu'il prétend être.
+// Elles garantissent : (1) l'appelant est authentifié, (2) la forme des
+// données écrites est correcte, (3) on ne peut pas écrire n'importe quoi
+// n'importe où. Pour une vraie sécurité d'identité, il faudra passer à
+// une auth vérifiée (e-mail/mot de passe ou custom token) — voir README.
+// =====================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Un seul "team" pour l'instant : luxvisual
+    match /teams/{teamId} {
+
+      allow read: if signedIn();
+      allow write: if false; // le doc team lui-même n'est pas modifiable par le client
+
+      // ---- Utilisateurs (employés + manager) ----
+      match /users/{userId} {
+        allow read: if signedIn();
+        // création : doc bien formé
+        allow create: if signedIn()
+          && request.resource.data.keys().hasAll(['name','code','color','initials','role','xp','points'])
+          && request.resource.data.name is string
+          && request.resource.data.code is string
+          && request.resource.data.code.size() == 4
+          && request.resource.data.xp is number
+          && request.resource.data.points is number;
+        // mise à jour : on autorise (le client gère points/xp). Durcir plus tard.
+        allow update: if signedIn()
+          && request.resource.data.xp is number
+          && request.resource.data.points is number;
+        allow delete: if signedIn();
+      }
+
+      // ---- Salles / zones ----
+      match /zones/{zoneId} {
+        allow read: if signedIn();
+        allow create, update: if signedIn()
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0;
+        allow delete: if signedIn();
+      }
+
+      // ---- Tâches ----
+      match /tasks/{taskId} {
+        allow read: if signedIn();
+        allow create, update: if signedIn()
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.pts is number
+          && request.resource.data.pts > 0;
+        allow delete: if signedIn();
+      }
+
+      // ---- Déclarations (déclarer une tâche faite) ----
+      match /declarations/{declId} {
+        allow read: if signedIn();
+        allow create: if signedIn()
+          && request.resource.data.keys().hasAll(['userId','taskId','ts','status'])
+          && request.resource.data.status == 'pending'
+          && request.resource.data.ts is number;
+        // mise à jour : validation manager (status -> ok/refused)
+        allow update: if signedIn()
+          && request.resource.data.status in ['ok','refused','pending'];
+        allow delete: if signedIn();
+      }
+
+      // ---- Récompenses ----
+      match /rewards/{rewardId} {
+        allow read: if signedIn();
+        allow create, update: if signedIn()
+          && request.resource.data.name is string
+          && request.resource.data.cost is number;
+        allow delete: if signedIn();
+      }
+
+      // ---- Échanges de récompenses ----
+      match /redemptions/{redId} {
+        allow read: if signedIn();
+        allow create: if signedIn()
+          && request.resource.data.keys().hasAll(['userId','rewardId','ts']);
+        allow delete: if signedIn();
+      }
+    }
+
+    // tout le reste : refusé
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
